@@ -17,6 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Extract AuraSound native update
+        run: |
+          unzip -o AuraSound-3D-Player-Android-Native-Update.zip -d /tmp/aura-update
+          cp -a /tmp/aura-update/AuraSound-3D-Player-main/. .
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -47,6 +52,14 @@ jobs:
 
       - name: Add Android platform
         run: npx cap add android
+
+      - name: Install AuraSound native Android bridge
+        run: |
+          mkdir -p android/app/src/main/java/com/aurasound/player
+          cp native/android/AuraNativePlugin.java android/app/src/main/java/com/aurasound/player/AuraNativePlugin.java
+          cp native/android/AuraScanService.java android/app/src/main/java/com/aurasound/player/AuraScanService.java
+          python3 native/android/patch_manifest.py android/app/src/main/AndroidManifest.xml
+          python3 native/android/patch_main.py android/app/src/main/java/com/aurasound/player/MainActivity.java
 
       - name: Sync Capacitor
         run: npx cap sync android
