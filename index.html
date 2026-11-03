@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="neon">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#030712">
+<meta name="application-name" content="AuraSound 3D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/aura-192.png">
+<link rel="apple-touch-icon" href="./icons/aura-192.png">
+<title>AuraSound Ultra 3D Player</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root[data-theme="neon"]{--primary:#00f0ff;--primary-glow:rgba(0,240,255,.4);--bg-glass:rgba(13,17,23,.65);--border-glass:rgba(0,240,255,.25);--text-main:#f8fafc;--text-sub:#94a3b8}
+:root[data-theme="cyberpunk"]{--primary:#ff0055;--primary-glow:rgba(255,0,85,.4);--bg-glass:rgba(23,11,28,.7);--border-glass:rgba(255,0,85,.3);--text-main:#ffe600;--text-sub:#f472b6}
+:root[data-theme="galaxy"]{--primary:#a855f7;--primary-glow:rgba(168,85,247,.4);--bg-glass:rgba(15,10,30,.7);--border-glass:rgba(168,85,247,.3);--text-main:#f3e8ff;--text-sub:#c084fc}
+:root[data-theme="matrix"]{--primary:#22c55e;--primary-glow:rgba(34,197,94,.4);--bg-glass:rgba(5,20,10,.75);--border-glass:rgba(34,197,94,.3);--text-main:#86efac;--text-sub:#4ade80}
+:root[data-theme="gold"]{--primary:#f59e0b;--primary-glow:rgba(245,158,11,.4);--bg-glass:rgba(24,18,9,.75);--border-glass:rgba(245,158,11,.3);--text-main:#fef3c7;--text-sub:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:#030712;color:var(--text-main);height:100dvh;overflow:hidden;position:relative;display:flex;justify-content:center;align-items:center}
+button,input,select{font:inherit}
+#canvas-3d{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.app-window{position:relative;z-index:2;width:100%;max-width:480px;height:100%;display:flex;flex-direction:column;background:var(--bg-glass);backdrop-filter:blur(25px) saturate(180%);-webkit-backdrop-filter:blur(25px) saturate(180%);border-inline:1px solid var(--border-glass);box-shadow:0 0 50px #000c}
+.app-header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-glass);gap:8px}
+.brand-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1.05rem;color:var(--primary);text-shadow:0 0 10px var(--primary-glow);white-space:nowrap}
+.header-nav{display:flex;gap:7px}
+.icon-btn{width:40px;height:40px;flex-shrink:0;border-radius:12px;border:1px solid var(--border-glass);background:#ffffff0d;color:var(--text-main);display:inline-flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;transition:all .2s}
+.icon-btn:active,.glass-btn:active{transform:scale(.94);background:var(--primary);color:#000}
+.player-hero{padding:14px 18px 6px;display:flex;flex-direction:column;align-items:center}
+.art-container{width:142px;height:142px;position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0}
+.art-disc{width:112px;height:112px;border-radius:50%;background:radial-gradient(circle,#ffffff1a,#000c);border:3px solid var(--border-glass);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px var(--primary-glow);position:relative;z-index:2}
+.art-disc i{font-size:2.7rem;color:var(--primary)}
+canvas#visualizer{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+.track-details{text-align:center;width:100%;margin-bottom:10px}
+.track-title{font-size:1.15rem;font-weight:750;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}
+.track-artist{font-size:.8rem;color:var(--text-sub);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scrubber-box{width:100%;padding:0 8px;margin-bottom:10px}
+.progress-bar-wrapper{width:100%;height:20px;display:flex;align-items:center;cursor:pointer;position:relative;touch-action:none}
+.progress-track{width:100%;height:6px;background:#ffffff1a;border-radius:10px;position:relative;overflow:hidden}
+.progress-fill{height:100%;width:0%;background:var(--primary);box-shadow:0 0 12px var(--primary);border-radius:10px}
+.time-labels{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-sub);margin-top:3px;direction:ltr}
+.controls-row{display:flex;align-items:center;justify-content:space-around;width:100%;margin-bottom:4px;gap:5px}
+.btn-play-main{width:58px;height:58px;flex-shrink:0;border-radius:50%;background:var(--primary);color:#000;display:flex;align-items:center;justify-content:center;font-size:1.45rem;border:0;cursor:pointer;box-shadow:0 0 25px var(--primary-glow)}
+.action-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 16px}
+.glass-btn{background:#ffffff0a;border:1px solid var(--border-glass);color:var(--text-main);padding:10px 7px;border-radius:14px;font-size:.78rem;font-weight:650;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;min-height:40px}
+.filter-row{padding:0 16px 9px;display:flex;gap:8px}
+.select-custom{background:#0006;border:1px solid var(--border-glass);color:var(--text-main);padding:8px;border-radius:12px;font-size:.72rem;outline:none;flex:1;min-width:0}
+.select-custom option{background:#101827;color:#fff}
+.playlist-heading{display:flex;justify-content:space-between;align-items:center;padding:0 18px 8px;font-size:.8rem;color:var(--text-sub)}
+.playlist-view{flex:1;min-height:70px;overflow-y:auto;padding:0 14px 16px;overscroll-behavior:contain}
+.playlist-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;background:#ffffff08;border:1px solid #ffffff0d;border-radius:15px;margin-bottom:7px;backdrop-filter:blur(10px);cursor:pointer;transition:all .2s}
+.playlist-card.active{background:#ffffff14;border-color:var(--primary);box-shadow:0 0 13px var(--primary-glow)}
+.playlist-card.active .card-title{color:var(--primary)}
+.card-info{display:flex;flex-direction:column;gap:4px;overflow:hidden;min-width:0;flex:1}
+.card-title{font-size:.83rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-size:.68rem;color:var(--text-sub);display:flex;gap:8px;white-space:nowrap;overflow:hidden}
+.card-meta span{overflow:hidden;text-overflow:ellipsis}
+.track-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.track-share-btn{width:34px;height:34px;font-size:.85rem}
+.track-type-icon{color:var(--text-sub);font-size:.8rem}
+.empty-state{text-align:center;color:var(--text-sub);font-size:.85rem;padding:25px 10px}
+.bottom-sheet{position:fixed;bottom:-100%;left:0;right:0;background:rgba(10,15,25,.97);backdrop-filter:blur(30px);border-top:1px solid var(--border-glass);border-radius:28px 28px 0 0;padding:20px;transition:bottom .35s;z-index:100;max-height:85dvh;overflow-y:auto}
+.bottom-sheet.open{bottom:0}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}
+.knob-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.knob-card{background:#ffffff08;border:1px solid var(--border-glass);border-radius:16px;padding:12px 8px;text-align:center;font-size:.75rem}
+.knob-card input{width:100%;margin-top:8px;accent-color:var(--primary)}
+.eq-sliders-container{display:flex;justify-content:space-between;background:#0006;border:1px solid var(--border-glass);padding:16px 8px;border-radius:20px;gap:3px}
+.eq-col{display:flex;flex-direction:column;align-items:center;font-size:.62rem;color:var(--text-sub);flex:1;min-width:0}
+.eq-col input{writing-mode:vertical-lr;direction:rtl;appearance:slider-vertical;width:8px;height:80px;margin:8px 0;accent-color:var(--primary)}
+.car-dashboard{position:fixed;inset:0;background:#030712;z-index:999;display:flex;flex-direction:column;justify-content:flex-start;gap:clamp(12px,3vh,22px);padding:20px;opacity:0;pointer-events:none;transition:opacity .25s;overflow-y:auto}
+.car-dashboard.active{opacity:1;pointer-events:auto}
+.car-top-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--border-glass);padding-bottom:12px}
+.car-badge{background:var(--primary);color:#000;padding:7px 13px;border-radius:20px;font-weight:800;font-size:.82rem;display:flex;align-items:center;gap:8px;margin-left:auto;white-space:nowrap}
+.car-center-info{text-align:center;margin:8px 0}
+.car-now-playing{font-size:clamp(1.3rem,5vw,1.8rem);font-weight:900;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
+.car-now-album{font-size:.95rem;color:var(--primary);font-weight:600}
+.car-volume-box{background:#ffffff0a;border:1px solid var(--border-glass);border-radius:20px;padding:12px 16px;display:flex;align-items:center;gap:14px}
+.car-volume-box i{font-size:1.25rem;color:var(--primary)}
+.car-volume-slider{flex:1;min-width:0;height:12px;accent-color:var(--primary);cursor:pointer}
+.car-giant-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:center}
+.btn-car-giant{background:#ffffff0d;border:2px solid var(--border-glass);border-radius:25px;color:#fff;font-size:2rem;height:clamp(78px,14vh,105px);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.btn-car-giant:active{background:var(--primary);color:#000}
+.btn-car-giant.play{height:clamp(90px,16vh,120px);background:var(--primary);color:#000;font-size:2.7rem;box-shadow:0 0 35px var(--primary-glow)}
+.car-seek-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-car-seek{background:#ffffff08;border:1px solid var(--border-glass);border-radius:18px;color:var(--text-sub);font-size:1rem;height:56px;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;font-weight:700}
+.car-share-wide{width:100%;min-height:54px;border-radius:18px;border:1px solid var(--border-glass);background:#ffffff0a;color:var(--text-main);display:flex;justify-content:center;align-items:center;gap:10px;font-weight:700}
+input[type=file]{display:none}
+@media(max-height:700px){.player-hero{padding-top:7px}.art-container{width:105px;height:105px;margin-bottom:5px}.art-disc{width:82px;height:82px}.art-disc i{font-size:2rem}.btn-play-main{width:50px;height:50px}.icon-btn{width:36px;height:36px}.action-bar{padding-top:5px;padding-bottom:5px}.filter-row{padding-bottom:6px}.playlist-heading{padding-bottom:5px}}
+</style>
+</head>
+<body>
+<canvas id="canvas-3d"></canvas>
+<div class="app-window">
+  <header class="app-header">
+    <div class="brand-logo"><i class="fas fa-wave-square"></i> AuraSound 3D</div>
+    <div class="header-nav">
+      <button class="icon-btn" id="btn-share-main" title="اشتراک‌گذاری آهنگ" aria-label="اشتراک‌گذاری"><i class="fas fa-share-alt"></i></button>
+      <button class="icon-btn" id="btn-car-mode" title="حالت رانندگی" aria-label="حالت رانندگی"><i class="fas fa-car"></i></button>
+      <button class="icon-btn" id="btn-open-sheet" title="تنظیمات اکولایزر" aria-label="تنظیمات اکولایزر"><i class="fas fa-sliders-h"></i></button>
+    </div>
+  </header>
+  <section class="player-hero">
+    <div class="art-container"><canvas id="visualizer"></canvas><div class="art-disc"><i class="fas fa-compact-disc"></i></div></div>
+    <div class="track-details"><div class="track-title" id="title">فایلی انتخاب نشده</div><div class="track-artist" id="artist">یک آهنگ یا پوشه انتخاب کنید</div></div>
+    <div class="scrubber-box">
+      <div class="progress-bar-wrapper" id="progress-wrapper" role="slider" aria-label="موقعیت آهنگ" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div></div>
+      <div class="time-labels"><span id="current-time">00:00</span><span id="duration">00:00</span></div>
+    </div>
+    <div class="controls-row">
+      <button class="icon-btn" id="btn-shuffle" title="پخش تصادفی" aria-label="پخش تصادفی"><i class="fas fa-random"></i></button>
+      <button class="icon-btn" id="btn-prev" title="آهنگ قبلی" aria-label="آهنگ قبلی"><i class="fas fa-step-backward"></i></button>
+      <button class="btn-play-main" id="btn-play" title="پخش یا توقف" aria-label="پخش"><i class="fas fa-play"></i></button>
+      <button class="icon-btn" id="btn-next" title="آهنگ بعدی" aria-label="آهنگ بعدی"><i class="fas fa-step-forward"></i></button>
+      <button class="icon-btn" id="btn-repeat" title="تکرار" aria-label="تکرار"><i class="fas fa-redo"></i></button>
+    </div>
+  </section>
+  <div class="action-bar">
+    <button class="glass-btn" id="btn-scan-folder"><i class="fas fa-folder-open"></i> اسکن پوشه</button>
+    <label class="glass-btn"><i class="fas fa-file-audio"></i> انتخاب فایل<input type="file" id="file-input" multiple accept="audio/*,video/*"></label>
+  </div>
+  <div class="filter-row">
+    <select class="select-custom" id="sort-select" aria-label="مرتب‌سازی">
+      <option value="default">مرتب‌سازی پیش‌فرض</option><option value="name">نام آهنگ</option><option value="size">حجم فایل</option><option value="date">تاریخ افزودن</option><option value="album">پوشه / آلبوم</option>
+    </select>
+    <select class="select-custom" id="theme-select" aria-label="پوسته">
+      <option value="neon">نئون سیان</option><option value="cyberpunk">سایبرپانک</option><option value="galaxy">کهکشان بنفش</option><option value="matrix">ماتریکس سبز</option><option value="gold">طلایی</option>
+    </select>
+  </div>
+  <div class="playlist-heading"><span><i class="fas fa-list-music"></i> فهرست پخش</span><span id="track-count">۰ آهنگ</span></div>
+  <div class="playlist-view" id="playlist-items"><div class="empty-state">برای شروع، آهنگ یا پوشه‌ای انتخاب کنید.</div></div>
+</div>
+
+<div class="bottom-sheet" id="audio-sheet">
+  <div class="sheet-head"><span style="font-weight:700;font-size:1rem"><i class="fas fa-sliders-h" style="color:var(--primary)"></i> تنظیمات بیس و اکولایزر</span><button class="icon-btn" id="btn-close-sheet" aria-label="بستن"><i class="fas fa-times"></i></button></div>
+  <div class="knob-grid">
+    <div class="knob-card"><span style="color:var(--primary)">آمپلی‌فایر</span><input type="range" id="amp-gain" min="1" max="4" step=".1" value="1"><div id="amp-val">1.0x</div></div>
+    <div class="knob-card"><span>بیس نرم</span><input type="range" id="bass-boost" min="-12" max="18" step=".5" value="3"><div id="bass-val">+3.0 dB</div></div>
+    <div class="knob-card"><span>صدای زیر</span><input type="range" id="treble-boost" min="-12" max="15" step=".5" value="0"><div id="treble-val">0.0 dB</div></div>
+  </div>
+  <div class="eq-sliders-container">
+    <div class="eq-col"><span>31</span><input type="range" class="eq-slider" data-index="0" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>62</span><input type="range" class="eq-slider" data-index="1" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>125</span><input type="range" class="eq-slider" data-index="2" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>250</span><input type="range" class="eq-slider" data-index="3" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>500</span><input type="range" class="eq-slider" data-index="4" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>1k</span><input type="range" class="eq-slider" data-index="5" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>2k</span><input type="range" class="eq-slider" data-index="6" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>4k</span><input type="range" class="eq-slider" data-index="7" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>8k</span><input type="range" class="eq-slider" data-index="8" min="-12" max="12" value="0"></div>
+    <div class="eq-col"><span>16k</span><input type="range" class="eq-slider" data-index="9" min="-12" max="12" value="0"></div>
+  </div>
+</div>
+
+<div class="car-dashboard" id="car-mode-overlay" aria-hidden="true">
+  <div class="car-top-bar">
+    <div class="car-badge"><i class="fas fa-car"></i> حالت رانندگی</div>
+    <button class="icon-btn" id="btn-car-share" title="اشتراک‌گذاری آهنگ" aria-label="اشتراک‌گذاری"><i class="fas fa-share-alt"></i></button>
+    <button class="icon-btn" id="btn-close-car-mode" style="width:48px;height:48px;font-size:1.3rem" aria-label="بستن حالت رانندگی"><i class="fas fa-times"></i></button>
+  </div>
+  <div class="car-center-info"><div class="car-now-playing" id="car-title">فایلی انتخاب نشده</div><div class="car-now-album" id="car-artist">آماده پخش</div></div>
+  <div class="car-volume-box"><i class="fas fa-volume-down"></i><input type="range" class="car-volume-slider" id="car-volume" min="0" max="1" step=".01" value="1" aria-label="بلندی صدا"><i class="fas fa-volume-up"></i></div>
+  <div class="car-giant-controls">
+    <button class="btn-car-giant" id="btn-car-prev" aria-label="آهنگ قبلی"><i class="fas fa-backward"></i></button>
+    <button class="btn-car-giant play" id="btn-car-play" aria-label="پخش"><i class="fas fa-play"></i></button>
+    <button class="btn-car-giant" id="btn-car-next" aria-label="آهنگ بعدی"><i class="fas fa-forward"></i></button>
+  </div>
+  <div class="car-seek-row"><button class="btn-car-seek" id="btn-car-backward"><i class="fas fa-undo"></i> ۱۰ ثانیه</button><button class="btn-car-seek" id="btn-car-forward">۱۰ ثانیه <i class="fas fa-redo"></i></button></div>
+  <button class="car-share-wide" id="btn-car-share-wide"><i class="fas fa-share-alt"></i> اشتراک‌گذاری آهنگ در حال پخش</button>
+</div>
+
+<audio id="audio-element" preload="metadata" playsinline></audio>
+<video id="video-element" preload="metadata" playsinline style="display:none"></video>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const audioElement = $('audio-element'), videoElement = $('video-element');
+const visualizerCanvas = $('visualizer'), visualizerCtx = visualizerCanvas.getContext('2d');
+const playBtn = $('btn-play'), carPlayBtn = $('btn-car-play');
+const progressWrapper = $('progress-wrapper'), progressFill = $('progress-fill');
+const currentTimeEl = $('current-time'), durationEl = $('duration');
+const fileInput = $('file-input'), scanFolderBtn = $('btn-scan-folder');
+const playlistItems = $('playlist-items'), titleEl = $('title'), artistEl = $('artist');
+const sortSelect = $('sort-select'), audioSheet = $('audio-sheet');
+const carModeOverlay = $('car-mode-overlay'), carTitle = $('car-title'), carArtist = $('car-artist');
+let playlist = [], currentIndex = -1, isDragging = false, shuffleEnabled = false, repeatEnabled = false;
+let audioCtx = null, analyser = null, gainNode = null, bassFilter = null, trebleFilter = null, subCutFilter = null, limiterNode = null;
+let audioSourceAudio = null, audioSourceVideo = null, eqFilters = [], activeSource = null;
+const eqFrequencies = [31,62,125,250,500,1000,2000,4000,8000,16000];
+let scene, camera, renderer, particlesMesh, animationFrame = 0;
+
+// Persistent local library: audio files are stored in IndexedDB on this device.
+const LIB_DB_NAME = 'AuraSoundLibraryDB', LIB_DB_VERSION = 1;
+let libDbPromise = null, savedDirectoryHandle = null, isRestoringLibrary = false;
+function openLibraryDB() {
+  if (libDbPromise) return libDbPromise;
+  libDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(LIB_DB_NAME, LIB_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('tracks')) db.createObjectStore('tracks', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', {keyPath:'key'});
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB unavailable'));
+  });
+  return libDbPromise;
+}
+async function saveTrackToLibrary(track) {
+  if (!track || !track.file) return;
+  try {
+    const db = await openLibraryDB();
+    await new Promise((resolve,reject) => {
+      const tx = db.transaction('tracks','readwrite');
+      tx.objectStore('tracks').put({id:track.id,name:track.name,size:track.size,date:track.date,album:track.album,isVideo:track.isVideo,file:track.file});
+      tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error); tx.onabort=()=>reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('Could not persist audio file:',err);
+    if (!sessionStorage.getItem('aurasound-storage-warning')) {
+      sessionStorage.setItem('aurasound-storage-warning','1');
+      alert('بعضی فایل‌ها در حافظه داخلی مرورگر ذخیره نشدند؛ ممکن است فضای ذخیره‌سازی کافی نباشد.');
+    }
+  }
+}
+async function deleteTrackFromLibrary(id) {
+  try { const db=await openLibraryDB(); await new Promise((resolve,reject)=>{const tx=db.transaction('tracks','readwrite');tx.objectStore('tracks').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);}); } catch(e) { console.warn('Could not delete stored track',e); }
+}
+async function saveDirectoryHandle(handle) {
+  try {
+    const db=await openLibraryDB();
+    await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({key:'musicDirectory',handle});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+    savedDirectoryHandle=handle;
+  } catch(e) { console.warn('Directory handle could not be saved',e); }
+}
+async function restoreLibrary() {
+  if (isRestoringLibrary) return;
+  isRestoringLibrary=true;
+  try {
+    const db=await openLibraryDB();
+    const records=await new Promise((resolve,reject)=>{const tx=db.transaction('tracks','readonly');const req=tx.objectStore('tracks').getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});
+    const known=new Set(playlist.map(t=>t.id));
+    for(const rec of records) {
+      if(known.has(rec.id)||!rec.file) continue;
+      playlist.push({id:rec.id,name:rec.name,size:rec.size,date:rec.date,album:rec.album,file:rec.file,url:URL.createObjectURL(rec.file),isVideo:!!rec.isVideo});
+    }
+    const setting=await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readonly');const req=tx.objectStore('settings').get('musicDirectory');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});
+    if(setting && setting.handle) savedDirectoryHandle=setting.handle;
+    if(playlist.length){sortPlaylist();if(currentIndex===-1)loadTrack(0,false);}
+    // If a previously granted folder is still available, silently check it on app open.
+    if(savedDirectoryHandle && 'showDirectoryPicker' in window) {
+      try {
+        const permission=await savedDirectoryHandle.queryPermission({mode:'read'});
+        if(permission==='granted') await syncSavedDirectory(false);
+      } catch(e) { console.debug('Saved folder permission needs refresh',e); }
+    }
+  } catch(e) { console.warn('Library restore failed',e); }
+  finally { isRestoringLibrary=false; }
+}
+async function syncSavedDirectory(showMessages=false) {
+  if(!savedDirectoryHandle) return;
+  try {
+    const permission=await savedDirectoryHandle.queryPermission({mode:'read'});
+    if(permission!=='granted') {
+      if(showMessages) alert('برای بررسی خودکار آهنگ‌های جدید، دوباره دسترسی پوشه را تأیید کن و گزینه اسکن پوشه را بزن.');
+      return;
+    }
+    const found=[];
+    await scanDirectoryRecursive(savedDirectoryHandle,savedDirectoryHandle.name,found);
+    let added=0;
+    for(const item of found) {
+      const duplicate=playlist.some(t=>t.name===item.name&&t.size===item.size&&t.date===item.date&&t.album===item.album);
+      if(duplicate){try{URL.revokeObjectURL(item.url)}catch(_){};continue;}
+      playlist.push(item); await saveTrackToLibrary(item); added++;
+    }
+    if(added){sortPlaylist();if(currentIndex===-1)loadTrack(0,false);}
+    if(showMessages) alert(added?`${added.toLocaleString('fa-IR')} آهنگ جدید اضافه شد.`:'آهنگ جدیدی پیدا نشد.');
+  } catch(e) {
+    console.warn('Folder sync failed',e);
+    if(showMessages) alert('بررسی پوشه انجام نشد. ممکن است مرورگر دوباره اجازه دسترسی بخواهد.');
+  }
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function activeMedia() {
+  const track = playlist[currentIndex];
+  return track && track.isVideo ? videoElement : audioElement;
+}
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+  const m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function initAudioEngine() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+  analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+  gainNode = audioCtx.createGain(); gainNode.gain.value = Number($('amp-gain').value);
+  subCutFilter = audioCtx.createBiquadFilter(); subCutFilter.type = 'highpass'; subCutFilter.frequency.value = 30;
+  bassFilter = audioCtx.createBiquadFilter(); bassFilter.type = 'lowshelf'; bassFilter.frequency.value = 80; bassFilter.gain.value = Number($('bass-boost').value);
+  trebleFilter = audioCtx.createBiquadFilter(); trebleFilter.type = 'highshelf'; trebleFilter.frequency.value = 3500; trebleFilter.gain.value = Number($('treble-boost').value);
+  limiterNode = audioCtx.createDynamicsCompressor();
+  limiterNode.threshold.value = -8; limiterNode.knee.value = 6; limiterNode.ratio.value = 12; limiterNode.attack.value = .005; limiterNode.release.value = .15;
+  eqFilters = eqFrequencies.map(freq => { const f = audioCtx.createBiquadFilter(); f.type = 'peaking'; f.frequency.value = freq; f.Q.value = 1.4; return f; });
+  audioSourceAudio = audioCtx.createMediaElementSource(audioElement);
+  audioSourceVideo = audioCtx.createMediaElementSource(videoElement);
+  connectChain(audioSourceAudio);
+}
+function connectChain(source) {
+  if (!source || !audioCtx) return;
+  try { source.disconnect(); } catch (_) {}
+  let node = source;
+  [gainNode,subCutFilter,bassFilter,trebleFilter,...eqFilters,limiterNode,analyser,audioCtx.destination].forEach(next => { node.connect(next); node = next; });
+  activeSource = source;
+}
+function updateAudioParam(node, value) { if (node && audioCtx) node.gain ? node.gain.setTargetAtTime(value,audioCtx.currentTime,.02) : null; }
+$('amp-gain').addEventListener('input', e => { const v = Number(e.target.value); $('amp-val').textContent = v.toFixed(1)+'x'; if(gainNode) gainNode.gain.setTargetAtTime(v,audioCtx.currentTime,.02); });
+$('bass-boost').addEventListener('input', e => { const v=Number(e.target.value); $('bass-val').textContent=(v>0?'+':'')+v.toFixed(1)+' dB'; if(bassFilter) bassFilter.gain.setTargetAtTime(v,audioCtx.currentTime,.02); });
+$('treble-boost').addEventListener('input', e => { const v=Number(e.target.value); $('treble-val').textContent=(v>0?'+':'')+v.toFixed(1)+' dB'; if(trebleFilter) trebleFilter.gain.setTargetAtTime(v,audioCtx.currentTime,.02); });
+document.querySelectorAll('.eq-slider').forEach(slider => slider.addEventListener('input', e => { const f=eqFilters[Number(e.target.dataset.index)]; if(f && audioCtx) f.gain.setTargetAtTime(Number(e.target.value),audioCtx.currentTime,.02); }));
+
+function init3D() {
+  if (!window.THREE) return;
+  const c = $('canvas-3d');
+  scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,1000); camera.position.z=30;
+  try { renderer = new THREE.WebGLRenderer({canvas:c,alpha:true,antialias:true}); } catch (_) { return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1,2)); renderer.setSize(innerWidth,innerHeight);
+  createParticles(0x00f0ff); animate3D();
+}
+function createParticles(color) {
+  if(!scene) return;
+  if(particlesMesh){scene.remove(particlesMesh);particlesMesh.geometry.dispose();particlesMesh.material.dispose();}
+  const count=420, geometry=new THREE.BufferGeometry(), positions=new Float32Array(count*3);
+  for(let i=0;i<positions.length;i++) positions[i]=(Math.random()-.5)*80;
+  geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  particlesMesh=new THREE.Points(geometry,new THREE.PointsMaterial({size:.7,color,transparent:true,opacity:.6})); scene.add(particlesMesh);
+}
+function animate3D() {
+  animationFrame=requestAnimationFrame(animate3D);
+  if(particlesMesh){particlesMesh.rotation.y+=.0015;particlesMesh.rotation.x+=.0008;}
+  if(renderer && scene && camera) renderer.render(scene,camera);
+}
+$('theme-select').addEventListener('change',e=>{
+  document.documentElement.dataset.theme=e.target.value;
+  const colors={neon:0x00f0ff,cyberpunk:0xff0055,galaxy:0xa855f7,matrix:0x22c55e,gold:0xf59e0b};createParticles(colors[e.target.value]||colors.neon);
+});
+window.addEventListener('resize',()=>{if(!camera||!renderer)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+function drawVisualizer() {
+  requestAnimationFrame(drawVisualizer);
+  const w=visualizerCanvas.clientWidth, h=visualizerCanvas.clientHeight;
+  if(!w||!h)return;
+  const dpr=Math.min(devicePixelRatio||1,2);
+  if(visualizerCanvas.width!==Math.round(w*dpr)||visualizerCanvas.height!==Math.round(h*dpr)){visualizerCanvas.width=Math.round(w*dpr);visualizerCanvas.height=Math.round(h*dpr);}
+  visualizerCtx.setTransform(dpr,0,0,dpr,0,0);visualizerCtx.clearRect(0,0,w,h);
+  if(!analyser || activeMedia().paused)return;
+  const data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);
+  const cx=w/2,cy=h/2,r=Math.min(w,h)*.39;
+  visualizerCtx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();visualizerCtx.lineWidth=2;
+  for(let i=0;i<data.length;i++){const bh=data[i]/255*25,a=i*2*Math.PI/data.length;visualizerCtx.beginPath();visualizerCtx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);visualizerCtx.lineTo(cx+Math.cos(a)*(r+bh),cy+Math.sin(a)*(r+bh));visualizerCtx.stroke();}
+}
+
+function renderPlaylist(scrollActive=false) {
+  $('track-count').textContent = `${playlist.length.toLocaleString('fa-IR')} آهنگ`;
+  if(!playlist.length){playlistItems.innerHTML='<div class="empty-state">برای شروع، آهنگ یا پوشه‌ای انتخاب کنید.</div>';return;}
+  playlistItems.innerHTML='';
+  playlist.forEach((track,index)=>{
+    const card=document.createElement('div');
+    card.className='playlist-card'+(index===currentIndex?' active':'');
+    card.dataset.index=String(index);
+    card.innerHTML=`
+      <div class="card-info">
+        <div class="card-title">${escapeHTML(track.name)}</div>
+        <div class="card-meta"><span><i class="fas fa-folder"></i> ${escapeHTML(track.album)}</span><span>${(track.size/1048576).toFixed(1)} MB</span></div>
+      </div>
+      <div class="track-actions">
+        <button class="icon-btn track-share-btn" data-share-index="${index}" aria-label="اشتراک‌گذاری ${escapeHTML(track.name)}" title="اشتراک‌گذاری"><i class="fas fa-share-alt"></i></button>
+        <button class="icon-btn track-remove-btn" data-remove-index="${index}" aria-label="حذف ${escapeHTML(track.name)} از فهرست" title="حذف از فهرست"><i class="fas fa-times"></i></button>
+        <i class="fas ${track.isVideo?'fa-video':'fa-music'} track-type-icon"></i>
+      </div>`;
+    card.addEventListener('click',e=>{if(e.target.closest('.track-share-btn'))return;loadTrack(Number(card.dataset.index));});
+    playlistItems.appendChild(card);
+  });
+  if(scrollActive){const active=playlistItems.querySelector('.playlist-card.active');if(active)active.scrollIntoView({behavior:'smooth',block:'nearest'});}
+}
+playlistItems.addEventListener('click',e=>{
+  const removeButton=e.target.closest('[data-remove-index]');
+  if(removeButton){
+    e.stopPropagation();
+    const index=Number(removeButton.dataset.removeIndex);
+    if(!Number.isInteger(index)||index<0||index>=playlist.length)return;
+    const removed=playlist[index];
+    deleteTrackFromLibrary(removed.id);
+    const wasCurrent=index===currentIndex;
+    try{URL.revokeObjectURL(removed.url);}catch(_){}
+    playlist.splice(index,1);
+    if(wasCurrent){
+      audioElement.pause();videoElement.pause();
+      currentIndex=-1;
+      if(playlist.length)loadTrack(Math.min(index,playlist.length-1),false);
+      else{
+        audioElement.removeAttribute('src');videoElement.removeAttribute('src');
+        audioElement.load();videoElement.load();
+        titleEl.textContent='فایلی انتخاب نشده';
+        artistEl.textContent='یک آهنگ یا پوشه انتخاب کنید';
+        carTitle.textContent='فایلی انتخاب نشده';carArtist.textContent='یک آهنگ یا پوشه انتخاب کنید';
+        progressFill.style.width='0%';currentTimeEl.textContent='00:00';durationEl.textContent='00:00';
+        setPlayingUI(false);updateMediaSession();
+      }
+    }else if(index<currentIndex)currentIndex--;
+    renderPlaylist();
+    updateMediaSession();
+    return;
+  }
+  const button=e.target.closest('[data-share-index]');
+  if(button){e.stopPropagation();shareTrack(playlist[Number(button.dataset.shareIndex)]);}
+});
+
+function addFileToPlaylist(file,folder) {
+  if(!file || (!file.type.startsWith('audio/')&&!file.type.startsWith('video/')))return false;
+  const duplicate=playlist.some(track=>track.name===file.name.replace(/\.[^/.]+$/,'')&&track.size===file.size&&track.date===(file.lastModified||Date.now())&&track.album===folder);
+  if(duplicate)return false;
+  const track={id:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),name:file.name.replace(/\.[^/.]+$/,''),size:file.size,date:file.lastModified||Date.now(),album:folder,file,url:URL.createObjectURL(file),isVideo:file.type.startsWith('video/')};
+  playlist.push(track); saveTrackToLibrary(track);
+  return true;
+}
+function sortPlaylist() {
+  const currentTrack=playlist[currentIndex],mode=sortSelect.value;
+  if(mode==='name')playlist.sort((a,b)=>a.name.localeCompare(b.name,'fa'));
+  else if(mode==='size')playlist.sort((a,b)=>b.size-a.size);
+  else if(mode==='date')playlist.sort((a,b)=>b.date-a.date);
+  else if(mode==='album')playlist.sort((a,b)=>a.album.localeCompare(b.album,'fa'));
+  currentIndex=currentTrack?playlist.indexOf(currentTrack):-1;
+  renderPlaylist(true);
+}
+sortSelect.addEventListener('change',sortPlaylist);
+
+fileInput.addEventListener('change',e=>{
+  const files=Array.from(e.target.files||[]);
+  files.forEach(file=>addFileToPlaylist(file,'حافظه دستگاه'));
+  sortPlaylist();
+  if(currentIndex===-1&&playlist.length)loadTrack(0);
+  fileInput.value='';
+});
+const directoryInput=document.createElement('input');
+directoryInput.type='file';directoryInput.multiple=true;directoryInput.accept='audio/*,video/*';
+directoryInput.setAttribute('webkitdirectory','');directoryInput.setAttribute('directory','');
+directoryInput.style.display='none';document.body.appendChild(directoryInput);
+directoryInput.addEventListener('change',e=>{
+  const files=Array.from(e.target.files||[]);
+  files.forEach(file=>{
+    const path=file.webkitRelativePath||file.name;
+    const folder=path.includes('/')?path.split('/').slice(0,-1).join('/'):'حافظه دستگاه';
+    addFileToPlaylist(file,folder);
+  });
+  sortPlaylist();
+  if(currentIndex===-1&&playlist.length)loadTrack(0);
+  directoryInput.value='';
+});
+scanFolderBtn.addEventListener('click',async()=>{
+  if('showDirectoryPicker' in window){
+    try{
+      const dir=await window.showDirectoryPicker({mode:'read'});
+      await saveDirectoryHandle(dir);
+      const found=[];
+      await scanDirectoryRecursive(dir,dir.name,found);
+      if(found.length){
+        const existing=new Set(playlist.map(t=>`${t.name}|${t.size}|${t.date}|${t.album}`));
+        for(const track of found){
+          const key=`${track.name}|${track.size}|${track.date}|${track.album}`;
+          if(existing.has(key)){try{URL.revokeObjectURL(track.url);}catch(_){}}
+          else{playlist.push(track);existing.add(key);saveTrackToLibrary(track);}
+        }
+        sortPlaylist();if(currentIndex===-1&&playlist.length)loadTrack(0);
+      }else alert('فایل صوتی یا تصویری سازگاری در این پوشه پیدا نشد.');
+    }catch(error){
+      if(error.name!=='AbortError')alert('دسترسی به پوشه ممکن نشد. می‌توانید از انتخاب فایل یا انتخاب پوشه در پنجره فایل اندروید استفاده کنید.');
+    }
+  }else{
+    directoryInput.click();
+  }
+});
+async function scanDirectoryRecursive(dir,folder,results){
+  for await(const entry of dir.values()){
+    if(entry.kind==='file'){
+      const file=await entry.getFile();
+      if(file.type.startsWith('audio/')||file.type.startsWith('video/'))results.push({id:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),name:file.name.replace(/\.[^/.]+$/,''),size:file.size,date:file.lastModified||Date.now(),album:folder,file,url:URL.createObjectURL(file),isVideo:file.type.startsWith('video/')});
+    }else if(entry.kind==='directory')await scanDirectoryRecursive(entry,entry.name,results);
+  }
+}
+async function shareTrack(track) {
+  if(!track){alert('ابتدا یک آهنگ انتخاب کنید.');return;}
+  const data={title:track.name,text:`🎵 ${track.name}\nپوشه: ${track.album}\nپخش‌شده با AuraSound 3D`};
+  try{
+    if(navigator.share)await navigator.share(data);
+    else if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(`${data.title}\n${data.text}`);alert('اطلاعات آهنگ کپی شد.');}
+    else prompt('متن را کپی کنید:',`${data.title}\n${data.text}`);
+  }catch(error){if(error.name!=='AbortError')alert('اشتراک‌گذاری در این دستگاه انجام نشد.');}
+}
+$('btn-share-main').addEventListener('click',()=>shareTrack(playlist[currentIndex]));
+$('btn-car-share').addEventListener('click',()=>shareTrack(playlist[currentIndex]));
+$('btn-car-share-wide').addEventListener('click',()=>shareTrack(playlist[currentIndex]));
+
+let mediaSessionHandlersInstalled = false;
+function updateMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  const track = playlist[currentIndex];
+  if (!track) {
+    try { navigator.mediaSession.playbackState = 'none'; } catch (_) {}
+    return;
+  }
+  try {
+    if ('MediaMetadata' in window) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.name || 'AuraSound 3D',
+        artist: track.album || 'AuraSound 3D Player',
+        album: 'AuraSound Playlist'
+      });
+    }
+    if (!mediaSessionHandlersInstalled) {
+      const handlers = {
+        play: () => { playTrack(); },
+        pause: () => { pauseTrack(); },
+        previoustrack: () => { playPrevious(); },
+        nexttrack: () => { playNext(); },
+        seekbackward: details => seekBy(-(details && details.seekOffset || 10)),
+        seekforward: details => seekBy(details && details.seekOffset || 10),
+        seekto: details => {
+          const media = activeMedia();
+          if (details && Number.isFinite(details.seekTime) && Number.isFinite(media.duration)) {
+            media.currentTime = Math.max(0, Math.min(media.duration, details.seekTime));
+          }
+        }
+      };
+      for (const [action, handler] of Object.entries(handlers)) {
+        try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {}
+      }
+      mediaSessionHandlersInstalled = true;
+    }
+    const media = activeMedia();
+    navigator.mediaSession.playbackState = media.ended ? 'none' : (media.paused ? 'paused' : 'playing');
+    if (typeof navigator.mediaSession.setPositionState === 'function' &&
+        Number.isFinite(media.duration) && media.duration > 0) {
+      navigator.mediaSession.setPositionState({
+        duration: media.duration,
+        playbackRate: Number.isFinite(media.playbackRate) && media.playbackRate > 0 ? media.playbackRate : 1,
+        position: Math.max(0, Math.min(media.duration, media.currentTime || 0))
+      });
+    }
+  } catch (error) {
+    console.debug('Media Session unavailable', error);
+  }
+}
+function seekBy(delta){const media=activeMedia();if(Number.isFinite(media.duration))media.currentTime=Math.max(0,Math.min(media.duration,media.currentTime+delta));}
+async function loadTrack(index,autoplay=true) {
+  if(index<0||index>=playlist.length)return;
+  const wasSame=index===currentIndex;
+  currentIndex=index;const track=playlist[index];
+  try{initAudioEngine();if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();}catch(_){}
+  audioElement.pause();videoElement.pause();
+  const media=track.isVideo?videoElement:audioElement;
+  const other=track.isVideo?audioElement:videoElement;
+  other.removeAttribute('src');other.load();
+  media.src=track.url;media.load();
+  if(audioCtx){connectChain(track.isVideo?audioSourceVideo:audioSourceAudio);}
+  titleEl.textContent=track.name;artistEl.textContent=`${track.album} • ${(track.size/1048576).toFixed(1)} MB`;
+  carTitle.textContent=track.name;carArtist.textContent=track.album;
+  progressFill.style.width='0%';currentTimeEl.textContent='00:00';durationEl.textContent='00:00';
+  renderPlaylist(true);updateMediaSession();
+  if(autoplay)await playTrack();
+}
+async function playTrack() {
+  if(currentIndex<0||!playlist.length)return;
+  const media=activeMedia();
+  try{
+    initAudioEngine();
+    if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
+    if(audioCtx&&activeSource!==(playlist[currentIndex].isVideo?audioSourceVideo:audioSourceAudio))connectChain(playlist[currentIndex].isVideo?audioSourceVideo:audioSourceAudio);
+    await media.play();
+    setPlayingUI(true);updateMediaSession();
+  }catch(error){setPlayingUI(false);console.warn('پخش ناموفق بود:',error);if(error.name!=='NotAllowedError')alert('این فایل قابل پخش نیست یا فرمت آن پشتیبانی نمی‌شود.');}
+}
+function pauseTrack(){activeMedia().pause();setPlayingUI(false);updateMediaSession();}
+function setPlayingUI(playing){$('btn-play').innerHTML=`<i class="fas fa-${playing?'pause':'play'}"></i>`;carPlayBtn.innerHTML=`<i class="fas fa-${playing?'pause':'play'}"></i>`;$('btn-play').setAttribute('aria-label',playing?'توقف':'پخش');carPlayBtn.setAttribute('aria-label',playing?'توقف':'پخش');}
+function playNext(){
+  if(!playlist.length)return;
+  if(shuffleEnabled&&playlist.length>1){let n=currentIndex;while(n===currentIndex)n=Math.floor(Math.random()*playlist.length);loadTrack(n);return;}
+  if(repeatEnabled){activeMedia().currentTime=0;playTrack();return;}
+  loadTrack((currentIndex+1)%playlist.length);
+}
+function playPrevious(){
+  if(!playlist.length)return;
+  const media=activeMedia();
+  if(media.currentTime>3){media.currentTime=0;return;}
+  if(shuffleEnabled&&playlist.length>1){let n=currentIndex;while(n===currentIndex)n=Math.floor(Math.random()*playlist.length);loadTrack(n);return;}
+  loadTrack((currentIndex-1+playlist.length)%playlist.length);
+}
+playBtn.addEventListener('click',()=>activeMedia().paused?playTrack():pauseTrack());
+carPlayBtn.addEventListener('click',()=>activeMedia().paused?playTrack():pauseTrack());
+$('btn-next').addEventListener('click',playNext);$('btn-car-next').addEventListener('click',playNext);
+$('btn-prev').addEventListener('click',playPrevious);$('btn-car-prev').addEventListener('click',playPrevious);
+$('btn-car-forward').addEventListener('click',()=>seekBy(10));$('btn-car-backward').addEventListener('click',()=>seekBy(-10));
+$('btn-shuffle').addEventListener('click',()=>{shuffleEnabled=!shuffleEnabled;$('btn-shuffle').style.color=shuffleEnabled?'var(--primary)':'var(--text-main)';$('btn-shuffle').setAttribute('aria-pressed',String(shuffleEnabled));});
+$('btn-repeat').addEventListener('click',()=>{repeatEnabled=!repeatEnabled;$('btn-repeat').style.color=repeatEnabled?'var(--primary)':'var(--text-main)';$('btn-repeat').setAttribute('aria-pressed',String(repeatEnabled));});
+$('car-volume').addEventListener('input',e=>{audioElement.volume=videoElement.volume=Number(e.target.value);});
+
+function updateProgress(media){
+  if(media!==activeMedia())return;
+  const duration=Number.isFinite(media.duration)?media.duration:0;
+  const pct=duration?media.currentTime/duration*100:0;
+  if(!isDragging)progressFill.style.width=`${pct}%`;
+  if(!isDragging)currentTimeEl.textContent=formatTime(media.currentTime);
+  durationEl.textContent=formatTime(duration);
+  progressWrapper.setAttribute('aria-valuenow',String(Math.round(pct)));
+}
+[audioElement,videoElement].forEach(media=>{
+  media.addEventListener('timeupdate',()=>{
+    updateProgress(media);
+    if(media===activeMedia()) updateMediaSession();
+  });
+  media.addEventListener('durationchange',()=>{
+    updateProgress(media);
+    if(media===activeMedia()) updateMediaSession();
+  });
+  media.addEventListener('play',()=>{
+    if(media===activeMedia()){setPlayingUI(true);updateMediaSession();}
+  });
+  media.addEventListener('pause',()=>{
+    if(media===activeMedia()){setPlayingUI(false);updateMediaSession();}
+  });
+  media.addEventListener('ended',()=>{
+    if(media!==activeMedia())return;
+    updateMediaSession();
+    if(repeatEnabled){media.currentTime=0;playTrack();}else playNext();
+  });
+  media.addEventListener('error',()=>{
+    if(media===activeMedia()&&media.currentSrc)console.warn('Media load error',media.error);
+  });
+});
+function seekFromPointer(e){
+  const media=activeMedia();if(!Number.isFinite(media.duration)||media.duration<=0)return;
+  const rect=progressWrapper.getBoundingClientRect();
+  const x=Math.max(0,Math.min(rect.width,e.clientX-rect.left));
+  const ratio=x/rect.width;media.currentTime=ratio*media.duration;
+  progressFill.style.width=`${ratio*100}%`;currentTimeEl.textContent=formatTime(media.currentTime);
+}
+progressWrapper.addEventListener('pointerdown',e=>{if(currentIndex<0)return;isDragging=true;progressWrapper.setPointerCapture(e.pointerId);seekFromPointer(e);});
+progressWrapper.addEventListener('pointermove',e=>{if(isDragging)seekFromPointer(e);});
+function stopDragging(e){if(!isDragging)return;seekFromPointer(e);isDragging=false;}
+progressWrapper.addEventListener('pointerup',stopDragging);progressWrapper.addEventListener('pointercancel',()=>{isDragging=false;});
+progressWrapper.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();seekBy(e.key==='ArrowRight'?5:-5);}});
+
+$('btn-open-sheet').addEventListener('click',()=>audioSheet.classList.add('open'));
+$('btn-close-sheet').addEventListener('click',()=>audioSheet.classList.remove('open'));
+$('btn-car-mode').addEventListener('click',()=>{carModeOverlay.classList.add('active');carModeOverlay.setAttribute('aria-hidden','false');});
+$('btn-close-car-mode').addEventListener('click',()=>{carModeOverlay.classList.remove('active');carModeOverlay.setAttribute('aria-hidden','true');});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){audioSheet.classList.remove('open');carModeOverlay.classList.remove('active');carModeOverlay.setAttribute('aria-hidden','true');}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateMediaSession();});
+
+
+// PWA service-worker registration works only when served from HTTPS or localhost.
+// The companion service-worker file is included in the downloadable PWA package.
+// Restore the saved playlist on every launch; no repeat scan is needed for already-added tracks.
+window.addEventListener('load', () => { restoreLibrary(); });
+document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible' && savedDirectoryHandle) syncSavedDirectory(false); });
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(error => console.debug('PWA offline cache unavailable:', error));
+  });
+}
+
+init3D();drawVisualizer();
+</script>
+</body>
+</html>
