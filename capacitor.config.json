@@ -1,0 +1,8 @@
+{
+  "appId": "com.aurasound.player",
+  "appName": "AuraSound 3D",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#030712"
+  }
+}
