@@ -20,7 +20,14 @@ jobs:
       - name: Extract AuraSound native update
         run: |
           unzip -o AuraSound-3D-Player-Android-Native-Update.zip -d /tmp/aura-update
-          cp -a /tmp/aura-update/AuraSound-3D-Player-main/. .
+          cp -a /tmp/aura-update/. .
+
+      - name: Verify updated source
+        run: |
+          grep -q "btn-create-playlist" index.html
+          grep -q "toggleFavorite" index.html
+          grep -q "startWatchingLibrary" index.html
+          grep -q "registerMediaStoreObserver" native/android/AuraNativePlugin.java
 
       - name: Setup Node
         uses: actions/setup-node@v4
