@@ -31,10 +31,16 @@
     return b.getCloudData();
   }
   async function account(path) {
+    const email=$("aura-cloud-email").value.trim();
+    const password=$("aura-cloud-password").value;
+    if(!email){status("لطفاً ایمیل را وارد کنید.");$("aura-cloud-email").focus();return;}
+    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){status("فرمت ایمیل معتبر نیست.");$("aura-cloud-email").focus();return;}
+    if(password.length<10){status("رمز عبور باید حداقل ۱۰ نویسه باشد.");$("aura-cloud-password").focus();return;}
+    status(path.endsWith("/register")?"در حال ایجاد حساب؛ لطفاً چند لحظه صبر کنید...":"در حال ورود به حساب...");
     setBusy(true);
     try {
       localStorage.setItem(API_KEY,api());
-      const result=await request(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("aura-cloud-email").value.trim(),password:$("aura-cloud-password").value})});
+      const result=await request(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});
       localStorage.setItem(TOKEN_KEY,result.token);$("aura-cloud-user").textContent=result.user.email;status("ورود به حساب ابری موفق بود.");
     } catch(e){status(e.message)} finally{setBusy(false)}
   }
