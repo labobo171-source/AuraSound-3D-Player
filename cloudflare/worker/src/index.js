@@ -111,7 +111,7 @@ async function handle(request,env) {
     const name=safeName(input?.name),mime=String(input?.mimeType||"application/octet-stream").slice(0,120),size=Number(input?.sizeBytes),lastModified=Number(input?.lastModified)||0,album=safeName(input?.album||"");
     if(!Number.isSafeInteger(size)||size<1||size>MAX_TRACK_BYTES)return json({error:"هر فایل باید حداکثر ۱۰۰ مگابایت باشد."},413);
     const id=crypto.randomUUID(),key=user.sub+"/"+id;
-    await env.DB.prepare("undefined").bind(id,user.sub,key,name,mime,size,lastModified,album,Date.now()).run();
+    await env.DB.prepare("INSERT INTO tracks (id,user_id,object_key,name,mime_type,size_bytes,last_modified,album,created_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(id,user.sub,key,name,mime,size,lastModified,album,Date.now()).run();
     return json({id,uploadUrl:"/api/tracks/"+id+"/content"},201);
   }
   const match=path.match(/^\/api\/tracks\/([0-9a-f-]{36})(?:\/content)?$/i);
