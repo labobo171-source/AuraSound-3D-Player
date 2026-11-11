@@ -747,8 +747,9 @@ window.auraCloudBridge = {
   async addCloudFile(file, album) {
     const added = addFileToPlaylist(file, album || 'فضای ابری');
     if (added) {
+      const addedTrack = playlist.find(track => track.file === file);
       sortPlaylist();
-      if (currentIndex === -1 && playlist.length) await loadTrack(playlist.length - 1);
+      if (currentIndex === -1 && addedTrack) await loadTrack(playlist.indexOf(addedTrack));
     }
     return added;
   }
