@@ -2,7 +2,7 @@
   "use strict";
   const API_KEY="aurasound-cloud-api",TOKEN_KEY="aurasound-cloud-token",UPLOADS_KEY="aurasound-cloud-uploads";
   const $=id=>document.getElementById(id);
-  const api=()=>String(localStorage.getItem(API_KEY)||"").replace(/\/+$/,"");
+  const api=()=>String(localStorage.getItem(API_KEY)||"https://aurasound-cloud-api.m-siyahloo.workers.dev").replace(/\/+$/,"");
   const token=()=>localStorage.getItem(TOKEN_KEY)||"";
   const headers=()=>({Authorization:"Bearer "+token()});
   const bridge=()=>window.auraCloudBridge;
