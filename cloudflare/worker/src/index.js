@@ -6,7 +6,7 @@ function json(data, status=200, headers={}) {
 }
 function b64url(bytes) {
   let s=""; for (const b of new Uint8Array(bytes)) s+=String.fromCharCode(b);
-  return btoa(s).replace(/=/g,"").replace(/\\+/g,"-").replace(/\\//g,"_");
+  return btoa(s).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
 }
 function fromB64url(s) {
   s=s.replace(/-/g,"+").replace(/_/g,"/");
@@ -54,18 +54,18 @@ async function auth(request,env) {
   return p;
 }
 function safeName(name) {
-  return String(name||"audio").replace(/[\\/\\r\\n\\0]/g,"_").slice(0,180);
+  return String(name||"audio").replace(/[\/\r\n\0]/g,"_").slice(0,180);
 }
 async function handle(request,env) {
   if(!env.DB||!env.MUSIC)return json({error:"Cloud storage is not configured."},503);
   if(!env.AUTH_SECRET||env.AUTH_SECRET.length<32)return json({error:"Authentication secret is not configured."},503);
-  const url=new URL(request.url),path=url.pathname.replace(/\\/+$/,"")||"/";
+  const url=new URL(request.url),path=url.pathname.replace(/\/+$/,"")||"/";
   if(request.method==="GET"&&path==="/api/health")return json({ok:true,service:"AuraSound Cloud",version:1});
   if(request.method==="POST"&&(path==="/api/auth/register"||path==="/api/auth/login")) {
     const input=await bodyJson(request);
     const email=String(input?.email||"").trim().toLowerCase();
     const password=String(input?.password||"");
-    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))return json({error:"ایمیل معتبر وارد کنید."},400);
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json({error:"ایمیل معتبر وارد کنید."},400);
     if(password.length<10)return json({error:"رمز عبور باید حداقل ۱۰ نویسه باشد."},400);
     let user;
     if(path.endsWith("register")) {
@@ -114,7 +114,7 @@ async function handle(request,env) {
     await env.DB.prepare("INSERT INTO tracks (id,user_id,object_key,name,mime_type,size_bytes,created_at) VALUES (?,?,?,?,?,?,?)").bind(id,user.sub,key,name,mime,size,Date.now()).run();
     return json({id,uploadUrl:"/api/tracks/"+id+"/content"},201);
   }
-  const match=path.match(/^\\/api\\/tracks\\/([0-9a-f-]{36})(?:\\/content)?$/i);
+  const match=path.match(/^\/api\/tracks\/([0-9a-f-]{36})(?:\/content)?$/i);
   if(match) {
     const id=match[1],row=await env.DB.prepare("SELECT id,object_key,name,mime_type,size_bytes FROM tracks WHERE id=? AND user_id=?").bind(id,user.sub).first();
     if(!row)return json({error:"فایل پیدا نشد."},404);
