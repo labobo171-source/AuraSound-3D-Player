@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS tracks (
   name TEXT NOT NULL,
   mime_type TEXT NOT NULL,
   size_bytes INTEGER NOT NULL,
+  last_modified INTEGER NOT NULL DEFAULT 0,
+  album TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tracks_user_created ON tracks(user_id, created_at DESC);
