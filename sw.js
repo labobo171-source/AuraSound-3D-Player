@@ -1,6 +1,6 @@
 'use strict';
-const CACHE_NAME = 'aurasound-shell-v4';
-const SHELL = ['./', './index.html', './cloud.js', './manifest.webmanifest', './icons/aura-192.png', './icons/aura-512.png', './icons/aura-maskable-512.png'];
+const CACHE_NAME = 'aurasound-shell-v5';
+const SHELL = ['./', './index.html', './cloud.js?v=2', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });
