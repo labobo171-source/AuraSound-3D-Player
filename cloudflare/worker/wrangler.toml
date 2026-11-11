@@ -1,0 +1,16 @@
+name = "aurasound-cloud"
+main = "src/index.js"
+compatibility_date = "2026-11-11"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aurasound-cloud-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "MUSIC"
+bucket_name = "aurasound-music"
+
+[vars]
+APP_ORIGIN = "https://labobo171-source.github.io"
+# Set AUTH_SECRET with: npx wrangler secret put AUTH_SECRET
