@@ -5,7 +5,7 @@ compatibility_date = "2026-11-11"
 [[d1_databases]]
 binding = "DB"
 database_name = "aurasound-cloud-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "72114e67-0c6a-46a4-8125-b50ac1a437a7"
 
 [[r2_buckets]]
 binding = "MUSIC"
