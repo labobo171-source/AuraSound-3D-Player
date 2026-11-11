@@ -109,6 +109,7 @@ window.auraCloudBridge={
   },
   applyCloudData:data=>{
     const favorites=new Set(data.favorites||[]);
+    favorites.forEach(k=>{try{localStorage.setItem("aurasound-fav:"+k,"1")}catch(e){}});
     playlist.forEach(t=>{const k=[t.file.name,t.file.size,t.file.lastModified].join("|");t.isFavorite=favorites.has(k);try{if(t.isFavorite)localStorage.setItem(favoriteKey(t.file),"1");else localStorage.removeItem(favoriteKey(t.file))}catch(e){}});
     const s=data.settings||{};
     if(s.theme&&$("theme-select").querySelector('option[value="'+s.theme+'"]')){$("theme-select").value=s.theme;$("theme-select").dispatchEvent(new Event("change"))}
