@@ -20,7 +20,8 @@
   const setBusy=busy=>document.querySelectorAll("#aura-cloud-dialog button").forEach(b=>b.disabled=busy);
   async function request(path,options={}) {
     if(!api())throw new Error("ابتدا نشانی Worker را وارد کنید.");
-    const target=/^https?:\\/\\//i.test(path)?path:api()+path;\n    const response=await fetch(target,{...options,headers:{...(options.headers||{}),...(token()?headers():{})}});
+    const target = /^https?:\/\//i.test(path) ? path : api() + path;
+    const response=await fetch(target,{...options,headers:{...(options.headers||{}),...(token()?headers():{})}});
     let data={};try{data=await response.json()}catch{}
     if(!response.ok)throw new Error(data.error||("خطای سرور: "+response.status));
     return data;
