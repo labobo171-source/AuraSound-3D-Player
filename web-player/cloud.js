@@ -50,10 +50,12 @@
     setBusy(true);let done=0,failed=0;
     try {
       const uploaded=JSON.parse(localStorage.getItem(UPLOADS_KEY)||"{}");
+      const remote=await request("/api/tracks");
+      const remoteKeys=new Set((remote.tracks||[]).map(t=>[t.name,t.size_bytes,t.last_modified].join("|")));
       for(const track of tracks) {
         const file=track.file;if(!file)continue;
         const key=[file.name,file.size,file.lastModified].join("|");
-        if(uploaded[key])continue;
+        if(uploaded[key]||remoteKeys.has(key)){uploaded[key]=uploaded[key]||"remote";continue;}
         try {
           const meta=await request("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:file.name,mimeType:file.type||"application/octet-stream",sizeBytes:file.size,lastModified:file.lastModified||0,album:track.album||"حافظه دستگاه"})});
           await request(meta.uploadUrl,{method:"PUT",headers:{"Content-Type":file.type||"application/octet-stream"},body:file});
