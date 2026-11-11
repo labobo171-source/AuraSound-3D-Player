@@ -4,7 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#030712"><meta name="description" content="AuraSound Ultra 3D Player - پخش‌کننده موسیقی سه‌بعدی">
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <title>AuraSound Ultra 3D Player</title>
@@ -95,7 +95,7 @@ audio.ontimeupdate=()=>{if(!Number.isFinite(audio.duration)||!audio.duration)ret
 audio.onplay=updateButtons;audio.onpause=updateButtons;audio.onended=()=>isRepeat?playTrack(currentIndex):next();
 $("progress-wrapper").onclick=e=>{if(!Number.isFinite(audio.duration)||!audio.duration)return;let r=e.currentTarget.getBoundingClientRect();let pct=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));audio.currentTime=pct*audio.duration};
 function fmt(s){let m=Math.floor(s/60),v=Math.floor(s%60);return String(m).padStart(2,"0")+":"+String(v).padStart(2,"0")}
-function mediaSession(t){if(!("mediaSession"in navigator)||!window.MediaMetadata)return;navigator.mediaSession.metadata=new MediaMetadata({title:t.title,artist:t.artist,album:"AuraSound 3D",artwork:[{src:"./icons/icon-192.png",sizes:"192x192",type:"image/png"}]});for(const [a,fn] of [["play",togglePlay],["pause",togglePlay],["previoustrack",prev],["nexttrack",next]])try{navigator.mediaSession.setActionHandler(a,fn)}catch(e){}}
+function mediaSession(t){if(!("mediaSession"in navigator)||!window.MediaMetadata)return;navigator.mediaSession.metadata=new MediaMetadata({title:t.title,artist:t.artist,album:"AuraSound 3D",artwork:[{src:"./icons/icon.svg",sizes:"any",type:"image/svg+xml"}]});for(const [a,fn] of [["play",togglePlay],["pause",togglePlay],["previoustrack",prev],["nexttrack",next]])try{navigator.mediaSession.setActionHandler(a,fn)}catch(e){}}
 let scene,camera,renderer,particles,particleMaterial;
 function init3D(){if(!window.THREE)return;try{let el=$("canvas-3d");scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,1000);camera.position.z=30;renderer=new THREE.WebGLRenderer({canvas:el,alpha:true,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);let count=600,pos=new Float32Array(count*3);for(let i=0;i<pos.length;i++)pos[i]=(Math.random()-.5)*80;let geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));particleMaterial=new THREE.PointsMaterial({size:.8,color:0x00f0ff,transparent:true,opacity:.6});particles=new THREE.Points(geo,particleMaterial);scene.add(particles);function animate(){requestAnimationFrame(animate);particles.rotation.y+=.0015;particles.rotation.x+=.0008;renderer.render(scene,camera)}animate()}catch(e){console.warn("3D visualizer unavailable",e)}}
 addEventListener("resize",()=>{if(camera&&renderer){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}});
