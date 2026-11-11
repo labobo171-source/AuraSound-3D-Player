@@ -1,0 +1,22 @@
+name: AuraSound Cloud Worker Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/worker/**"
+      - ".github/workflows/cloud-worker-check.yml"
+  pull_request:
+    paths:
+      - "cloudflare/worker/**"
+      - ".github/workflows/cloud-worker-check.yml"
+  workflow_dispatch:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Worker JavaScript syntax
+        run: node --check cloudflare/worker/src/index.js
