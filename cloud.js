@@ -23,7 +23,7 @@
     const target = /^https?:\/\//i.test(path) ? path : api() + path;
     const response=await fetch(target,{...options,headers:{...(options.headers||{}),...(token()?headers():{})}});
     let data={};try{data=await response.json()}catch{}
-    if(!response.ok)throw new Error(data.error||("خطای سرور: "+response.status));
+    if(!response.ok)throw new Error((data.error||("خطای سرور: "+response.status))+(data.detail?"\nجزئیات فنی: "+data.detail:""));
     return data;
   }
   function localData() {
