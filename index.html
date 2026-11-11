@@ -763,12 +763,12 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=6').catch(error => console.debug('PWA offline cache unavailable:', error));
+    navigator.serviceWorker.register('./sw.js?v=7').catch(error => console.debug('PWA offline cache unavailable:', error));
   });
 }
 
 init3D();drawVisualizer();
 </script>
-<script src="./cloud.js?v=3"></script>
+<script src="./cloud.js?v=4"></script>
 </body>
 </html>
