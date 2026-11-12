@@ -1,0 +1,32 @@
+name: Inspect AuraSound Android native bundle
+
+on:
+  push:
+    branches:
+      - inspect-native-bundle
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract native source archive
+        run: |
+          mkdir -p /tmp/aura-native
+          unzip -o AuraSound-3D-Player-Android-Native-Update.zip -d /tmp/aura-native
+          echo "=== EXTRACTED FILES ==="
+          find /tmp/aura-native -type f -maxdepth 5 -print
+          echo "=== RELEVANT SOURCE MARKERS ==="
+          grep -RniE "READ_MEDIA_AUDIO|READ_EXTERNAL_STORAGE|MediaStore|ContentObserver|requestPermissions|onRequestPermissionsResult|startWatchingLibrary|registerMediaStoreObserver|playlist|btn-create-playlist|scan" /tmp/aura-native --include='*.java' --include='*.xml' --include='*.html' --include='*.py' | head -n 500 || true
+
+      - name: Upload extracted native source for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuraSound-Native-Source-Inspection
+          path: /tmp/aura-native/
+          if-no-files-found: error
