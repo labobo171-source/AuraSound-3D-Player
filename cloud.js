@@ -42,6 +42,7 @@
   const setBusy = busy => document.querySelectorAll("#aura-cloud-dialog button").forEach(b => { b.disabled = busy; });
   const endpoint = path => SUPABASE_URL + path;
   async function api(path, options = {}) {
+    if (!path.startsWith("/auth/v1/")) await refreshSessionIfNeeded();
     const headers = { ...authHeaders(), ...(options.headers || {}) };
     const response = await fetch(endpoint(path), { ...options, headers });
     const type = response.headers.get("content-type") || "";
@@ -68,9 +69,32 @@
   }
   function saveSession(data) {
     if (data?.access_token) {
+      if (!data.expires_at && data.expires_in) data.expires_at = Math.floor(Date.now() / 1000) + Number(data.expires_in);
       localStorage.setItem(TOKEN_KEY, JSON.stringify(data));
       showUser();
     }
+  }
+  let refreshInFlight = null;
+  async function refreshSessionIfNeeded() {
+    const current = session();
+    if (!current?.refresh_token || !current.expires_at || current.expires_at > Math.floor(Date.now() / 1000) + 90) return;
+    if (!refreshInFlight) {
+      refreshInFlight = (async () => {
+        const response = await fetch(endpoint("/auth/v1/token?grant_type=refresh_token"), {
+          method: "POST",
+          headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: current.refresh_token })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.access_token) {
+          localStorage.removeItem(TOKEN_KEY);
+          showUser();
+          throw new Error("نشست حساب منقضی شده است؛ دوباره وارد شوید.");
+        }
+        saveSession(data);
+      })().finally(() => { refreshInFlight = null; });
+    }
+    await refreshInFlight;
   }
   async function account(mode) {
     const email = $("aura-cloud-email").value.trim().toLowerCase();
