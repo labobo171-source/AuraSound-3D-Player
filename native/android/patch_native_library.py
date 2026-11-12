@@ -212,6 +212,49 @@ html = html.replace(
     1
 )
 
+
+# Preserve Android's transient tap activation: never await AudioContext.resume()
+# before calling HTMLMediaElement.play(), or Android WebView may reject playback.
+old_load = "  try{initAudioEngine();if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();}catch(_){}"
+new_load = "  try{initAudioEngine();}catch(error){console.warn('Audio engine initialization:',error);}"
+if old_load in html:
+    html = html.replace(old_load, new_load, 1)
+elif new_load not in html:
+    raise SystemExit("loadTrack audio initialization block not found")
+
+old_play = """async function playTrack() {
+  if(currentIndex<0||!playlist.length)return;
+  const media=activeMedia();
+  try{
+    initAudioEngine();
+    if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
+    if(audioCtx&&activeSource!==(playlist[currentIndex].isVideo?audioSourceVideo:audioSourceAudio))connectChain(playlist[currentIndex].isVideo?audioSourceVideo:audioSourceAudio);
+    await media.play();
+    setPlayingUI(true);updateMediaSession();
+  }catch(error){setPlayingUI(false);console.warn('پخش ناموفق بود:',error);if(error.name!=='NotAllowedError')alert('این فایل قابل پخش نیست یا فرمت آن پشتیبانی نمی‌شود.');}
+}"""
+new_play = """async function playTrack() {
+  if(currentIndex<0||!playlist.length)return;
+  const media=activeMedia();
+  try{
+    initAudioEngine();
+    if(audioCtx&&activeSource!==(playlist[currentIndex].isVideo?audioSourceVideo:audioSourceAudio))connectChain(playlist[currentIndex].isVideo?audioSourceVideo:audioSourceAudio);
+    // Start playback synchronously within the user's tap gesture.
+    const playPromise=media.play();
+    const resumePromise=audioCtx&&audioCtx.state==='suspended'?audioCtx.resume():Promise.resolve();
+    await Promise.all([playPromise,resumePromise]);
+    setPlayingUI(true);updateMediaSession();
+  }catch(error){
+    setPlayingUI(false);
+    console.warn('پخش ناموفق بود:',error,'mediaError:',media.error,'source:',media.currentSrc);
+    if(error.name!=='NotAllowedError')alert('پخش انجام نشد: '+(error.message||error.name||'خطای ناشناخته'));
+  }
+}"""
+if old_play in html:
+    html = html.replace(old_play, new_play, 1)
+elif new_play not in html:
+    raise SystemExit("playTrack function not found")
+
 hp.write_text(html, encoding="utf-8")
 jp.write_text(plugin, encoding="utf-8")
 print("Android MediaStore and playlist patches applied.")
