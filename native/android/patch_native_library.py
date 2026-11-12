@@ -53,7 +53,7 @@ if removed != 1:
     raise SystemExit("Android folder-scan button not found")
 
 # Android uses the native MediaStore library; remove the web file picker entirely.
-html, removed = re.subn(r'\s*<label class="glass-btn">.*?id="file-input".*?</label>', '', html, count=1, flags=re.S)
+html, removed = re.subn(r'\s*<label class="glass-btn">.*?id="file-input".*?</label>', '<input type="file" id="file-input" multiple accept="audio/*,video/*">', html, count=1, flags=re.S)
 if removed != 1:
     raise SystemExit("Android file-picker control not found")
 html = re.sub(r'\s*<div class="action-bar">\s*</div>', '', html, count=1)
