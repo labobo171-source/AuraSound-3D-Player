@@ -50,7 +50,7 @@ canvas#visualizer{position:absolute;inset:0;width:100%;height:100%;z-index:1}
 .filter-row{padding:0 16px 9px;display:flex;gap:8px}
 .select-custom{background:#0006;border:1px solid var(--border-glass);color:var(--text-main);padding:8px;border-radius:12px;font-size:.72rem;outline:none;flex:1;min-width:0}
 .select-custom option{background:#101827;color:#fff}
-.playlist-heading{display:flex;justify-content:space-between;align-items:center;padding:0 18px 8px;font-size:.8rem;color:var(--text-sub)}
+.playlist-heading-actions{display:flex;align-items:center;gap:10px}.clear-playlist-btn{border:1px solid var(--border-glass);border-radius:9px;background:#ffffff08;color:var(--text-sub);padding:6px 9px;font-size:.68rem;cursor:pointer}.clear-playlist-btn:active{background:var(--primary);color:#000}.playlist-heading{display:flex;justify-content:space-between;align-items:center;padding:0 18px 8px;font-size:.8rem;color:var(--text-sub)}
 .playlist-view{flex:1;min-height:70px;overflow-y:auto;padding:0 14px 16px;overscroll-behavior:contain}
 .playlist-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;background:#ffffff08;border:1px solid #ffffff0d;border-radius:15px;margin-bottom:7px;backdrop-filter:blur(10px);cursor:pointer;transition:all .2s}
 .playlist-card.active{background:#ffffff14;border-color:var(--primary);box-shadow:0 0 13px var(--primary-glow)}
@@ -132,7 +132,7 @@ input[type=file]{display:none}
       <option value="neon">نئون سیان</option><option value="cyberpunk">سایبرپانک</option><option value="galaxy">کهکشان بنفش</option><option value="matrix">ماتریکس سبز</option><option value="gold">طلایی</option>
     </select>
   </div>
-  <div class="playlist-heading"><span><i class="fas fa-list-music"></i> فهرست پخش</span><span id="track-count">۰ آهنگ</span></div>
+  <div class="playlist-heading"><span><i class="fas fa-list-music"></i> فهرست پخش</span><span class="playlist-heading-actions"><span id="track-count">۰ آهنگ</span><button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i> پاک کردن فهرست</button></span></div>
   <div class="playlist-view" id="playlist-items"><div class="empty-state">برای شروع، آهنگ یا پوشه‌ای انتخاب کنید.</div></div>
 </div>
 
@@ -231,6 +231,43 @@ async function saveTrackToLibrary(track) {
 async function deleteTrackFromLibrary(id) {
   try { const db=await openLibraryDB(); await new Promise((resolve,reject)=>{const tx=db.transaction('tracks','readwrite');tx.objectStore('tracks').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);}); } catch(e) { console.warn('Could not delete stored track',e); }
 }
+async function clearAllTracksFromLibrary() {
+  const db=await openLibraryDB();
+  await new Promise((resolve,reject)=>{
+    const tx=db.transaction('tracks','readwrite');
+    tx.objectStore('tracks').clear();
+    tx.oncomplete=resolve;
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error);
+  });
+}
+async function clearPlaylist() {
+  if(!playlist.length)return;
+  if(!confirm('همه آهنگ‌ها از فهرست داخل برنامه پاک شوند؟ فایل‌های اصلی گوشی و اطلاعات ابری حذف نمی‌شوند.'))return;
+  try {
+    await clearAllTracksFromLibrary();
+    audioElement.pause();videoElement.pause();
+    playlist.forEach(track=>{try{if(track.url)URL.revokeObjectURL(track.url);}catch(_){}});
+    playlist=[];
+    currentIndex=-1;
+    audioElement.removeAttribute('src');videoElement.removeAttribute('src');
+    audioElement.load();videoElement.load();
+    titleEl.textContent='فایلی انتخاب نشده';
+    artistEl.textContent='یک آهنگ یا پوشه انتخاب کنید';
+    carTitle.textContent='فایلی انتخاب نشده';
+    carArtist.textContent='یک آهنگ یا پوشه انتخاب کنید';
+    progressFill.style.width='0%';
+    currentTimeEl.textContent='00:00';durationEl.textContent='00:00';
+    setPlayingUI(false);
+    renderPlaylist();
+    updateMediaSession();
+  } catch(error) {
+    console.error('Could not clear local playlist:',error);
+    alert('پاک کردن فهرست انجام نشد. لطفاً دوباره تلاش کنید.');
+  }
+}
+$('btn-clear-playlist').addEventListener('click',clearPlaylist);
+
 async function saveDirectoryHandle(handle) {
   try {
     if (!savedDirectoryHandles.some(item => item.name === handle.name)) savedDirectoryHandles.push(handle);

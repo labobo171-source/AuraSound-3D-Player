@@ -21,6 +21,7 @@ jobs:
         run: |
           unzip -o AuraSound-3D-Player-Android-Native-Update.zip -d /tmp/aura-update
           cp -a /tmp/aura-update/. .
+          python3 native/android/patch_clear_playlist.py index.html
 
       - name: Verify updated source
         run: |

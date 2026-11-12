@@ -33,3 +33,8 @@ Offline:
 PWA multi-folder scanning:
 - Use “افزودن / اسکن پوشه” repeatedly to add music from more than one folder. On browsers that support the File System Access API, selected folders are remembered and rechecked on launch, foreground return, and periodically while the PWA is visible.
 - On Android browsers without persistent directory access, select each folder when prompted, or use “انتخاب فایل” to choose multiple audio files. The browser requires the user to grant access; a PWA cannot silently scan the entire phone storage or access every folder automatically.
+
+
+Clear playlist:
+- Use “پاک کردن فهرست” to remove all tracks from this app's local playlist and IndexedDB library on this device. The original files on the phone, selected folder permissions, and cloud account data are not deleted.
+- Previously selected folders remain selected. A later manual or automatic folder scan may add matching tracks back to the playlist.
