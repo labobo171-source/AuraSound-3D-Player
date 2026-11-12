@@ -23,8 +23,12 @@ jobs:
 
       - name: Extract AuraSound native update
         run: |
+          # Keep the maintained patch script from the repository; the update ZIP
+          # also contains an older copy and must not overwrite the fixed script.
+          cp native/android/patch_native_library.py /tmp/patch_native_library.py
           unzip -o AuraSound-3D-Player-Android-Native-Update.zip -d /tmp/aura-update
           cp -a /tmp/aura-update/. .
+          cp /tmp/patch_native_library.py native/android/patch_native_library.py
           python3 native/android/patch_clear_playlist.py index.html
           python3 native/android/patch_native_library.py
 
