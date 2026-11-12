@@ -52,6 +52,20 @@ html, removed = re.subn(r'\s*<button class="glass-btn" id="btn-scan-folder">.*?<
 if removed != 1:
     raise SystemExit("Android folder-scan button not found")
 
+# Android uses the native MediaStore library; remove the web file picker entirely.
+html, removed = re.subn(r'\s*<label class="glass-btn">.*?id="file-input".*?</label>', '', html, count=1, flags=re.S)
+if removed != 1:
+    raise SystemExit("Android file-picker control not found")
+html = re.sub(r'\s*<div class="action-bar">\s*</div>', '', html, count=1)
+
+# Resolve native MediaStore content URIs at playback time, not only during scanning.
+html = html.replace(
+    "  media.src=track.url;media.load();",
+    """  const nativeSource=track.nativeUri ? (window.Capacitor?.convertFileSrc ? window.Capacitor.convertFileSrc(track.nativeUri) : track.nativeUri) : null;
+  media.src=nativeSource || track.url;media.load();""",
+    1
+)
+
 # Add a delete icon for the currently selected custom playlist.
 create_button = '<button id="btn-create-playlist" title="ساخت پلی‌لیست" aria-label="ساخت پلی‌لیست"><i class="fas fa-plus"></i></button>'
 delete_button = '<button id="btn-delete-playlist" title="حذف پلی‌لیست انتخاب‌شده" aria-label="حذف پلی‌لیست" hidden><i class="fas fa-trash-alt"></i></button>'
@@ -132,7 +146,7 @@ if 'function mergeNativeTracks(tracks)' not in html:
     playlist.push({
       id:t.id,name:t.name||t.filename||'آهنگ',size:t.size||0,date:t.date||0,
       album:t.album||'حافظه دستگاه',artist:t.artist||'',duration:t.duration||0,
-      url:window.Capacitor?.convertFileSrc ? window.Capacitor.convertFileSrc(uri) : uri,
+      url:uri,
       isVideo:false,nativeUri:uri
     });
     known.add(t.id); added++;
