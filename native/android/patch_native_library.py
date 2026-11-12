@@ -257,7 +257,7 @@ else:
     # Replace the whole function by its stable declaration boundary instead
     # of depending on an exact copy of the old implementation.
     html, replaced = re.subn(
-        r"(?ms)^async function playTrack\\(\\)\\s*\\{.*?^\\}",
+        r"(?ms)^async function playTrack\(\)\s*\{.*?^\}",
         lambda _: new_play,
         html,
         count=1
