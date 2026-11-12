@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/android-mediascan-playlists
   pull_request:
     branches:
       - main
