@@ -252,8 +252,18 @@ new_play = """async function playTrack() {
 }"""
 if old_play in html:
     html = html.replace(old_play, new_play, 1)
-elif new_play not in html:
-    raise SystemExit("playTrack function not found")
+else:
+    # The Android update ZIP may contain a slightly different playTrack body.
+    # Replace the whole function by its stable declaration boundary instead
+    # of depending on an exact copy of the old implementation.
+    html, replaced = re.subn(
+        r"(?ms)^async function playTrack\\(\\)\\s*\\{.*?^\\}",
+        lambda _: new_play,
+        html,
+        count=1
+    )
+    if replaced != 1:
+        raise SystemExit("playTrack function not found in Android update bundle")
 
 hp.write_text(html, encoding="utf-8")
 jp.write_text(plugin, encoding="utf-8")
