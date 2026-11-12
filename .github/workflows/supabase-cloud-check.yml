@@ -1,0 +1,35 @@
+name: AuraSound Supabase Cloud Check
+
+on:
+  push:
+    branches:
+      - feature/supabase-cloud-migration
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check cloud module syntax
+        run: node --check cloud.js
+      - name: Verify Supabase setup includes security policies
+        run: |
+          grep -q "enable row level security" supabase/setup.sql
+          grep -q "auth.uid() = user_id" supabase/setup.sql
+          grep -q "aurasound-tracks" supabase/setup.sql
+          grep -q "sb_publishable_" cloud.js
+      - name: Verify the old Worker endpoint is no longer used by the cloud module
+        run: |
+          ! grep -q "aurasound-cloud-api.m-siyahloo.workers.dev" cloud.js
