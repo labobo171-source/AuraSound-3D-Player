@@ -196,7 +196,7 @@ let scene, camera, renderer, particlesMesh, animationFrame = 0;
 
 // Persistent local library: audio files are stored in IndexedDB on this device.
 const LIB_DB_NAME = 'AuraSoundLibraryDB', LIB_DB_VERSION = 1;
-let libDbPromise = null, savedDirectoryHandles = [], isRestoringLibrary = false;
+let libDbPromise = null, savedDirectoryHandles = [], isRestoringLibrary = false, isDirectorySyncRunning = false;
 function openLibraryDB() {
   if (libDbPromise) return libDbPromise;
   libDbPromise = new Promise((resolve, reject) => {
@@ -265,7 +265,8 @@ async function restoreLibrary() {
   finally { isRestoringLibrary=false; }
 }
 async function syncSavedDirectory(showMessages=false) {
-  if(!savedDirectoryHandles.length) return;
+  if(!savedDirectoryHandles.length || isDirectorySyncRunning) return;
+  isDirectorySyncRunning = true;
   try {
     let added=0, needsPermission=0;
     for(const handle of savedDirectoryHandles) {
@@ -284,6 +285,8 @@ async function syncSavedDirectory(showMessages=false) {
   } catch(e) {
     console.warn('Folder sync failed',e);
     if(showMessages) alert('بررسی پوشه‌ها انجام نشد. ممکن است مرورگر دوباره اجازه دسترسی بخواهد.');
+  } finally {
+    isDirectorySyncRunning = false;
   }
 }
 
@@ -760,7 +763,17 @@ window.auraCloudBridge = {
 // The companion service-worker file is included in the downloadable PWA package.
 // Restore the saved playlist on every launch; no repeat scan is needed for already-added tracks.
 window.addEventListener('load', () => { restoreLibrary(); });
-document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible' && savedDirectoryHandles.length) syncSavedDirectory(false); });
+// Recheck folders that the user explicitly granted access to when the PWA opens,
+// returns to the foreground, or remains open. Browsers may throttle this while hidden.
+function refreshGrantedMusicFolders() {
+  if (!document.hidden && savedDirectoryHandles.length) syncSavedDirectory(false);
+}
+document.addEventListener('visibilitychange', refreshGrantedMusicFolders);
+window.addEventListener('focus', refreshGrantedMusicFolders);
+window.addEventListener('pageshow', refreshGrantedMusicFolders);
+// Foreground-only periodic scan: newly copied songs in previously approved folders
+// are added without requiring the user to press the folder button again.
+window.setInterval(refreshGrantedMusicFolders, 60000);
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   window.addEventListener('load', () => {
