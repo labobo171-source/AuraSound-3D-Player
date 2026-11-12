@@ -23,7 +23,7 @@ Privacy and local-first behavior:
 - Audio files are uploaded only after the user explicitly selects Upload tracks.
 - Storage bucket aurasound-tracks is private; each user can access only their own files.
 - Storage is browser/site-specific. Do not clear Chrome site data if you want to keep the saved local library.
-- Automatic discovery of new tracks is only possible where the browser supports File System Access API and the user has granted folder access. The app checks when opened or brought to the foreground; browsers do not permit continuous background monitoring while the app is closed.
+- Automatic discovery of new tracks is limited to folders the user explicitly selected and the browser still permits the app to read. The app rechecks those approved folders on launch, when returning to the foreground, and about once per minute while the PWA remains open and visible. Browsers do not permit continuous background monitoring while the app is closed.
 - If Android Chrome does not support persistent directory handles, existing saved tracks remain, but new tracks must be added manually.
 
 Offline:
@@ -31,5 +31,5 @@ Offline:
 - Login, cloud sync, and cloud music upload/download require an internet connection.
 
 PWA multi-folder scanning:
-- Use “افزودن / اسکن پوشه” repeatedly to add music from more than one folder. On browsers that support the File System Access API, selected folders are remembered and checked again when the app is reopened or brought to the foreground.
+- Use “افزودن / اسکن پوشه” repeatedly to add music from more than one folder. On browsers that support the File System Access API, selected folders are remembered and rechecked on launch, foreground return, and periodically while the PWA is visible.
 - On Android browsers without persistent directory access, select each folder when prompted, or use “انتخاب فایل” to choose multiple audio files. The browser requires the user to grant access; a PWA cannot silently scan the entire phone storage or access every folder automatically.
