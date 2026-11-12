@@ -29,3 +29,7 @@ Privacy and local-first behavior:
 Offline:
 - Local playback and locally saved tracks do not depend on Supabase.
 - Login, cloud sync, and cloud music upload/download require an internet connection.
+
+PWA multi-folder scanning:
+- Use “افزودن / اسکن پوشه” repeatedly to add music from more than one folder. On browsers that support the File System Access API, selected folders are remembered and checked again when the app is reopened or brought to the foreground.
+- On Android browsers without persistent directory access, select each folder when prompted, or use “انتخاب فایل” to choose multiple audio files. The browser requires the user to grant access; a PWA cannot silently scan the entire phone storage or access every folder automatically.

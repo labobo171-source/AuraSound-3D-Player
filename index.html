@@ -121,7 +121,7 @@ input[type=file]{display:none}
     </div>
   </section>
   <div class="action-bar">
-    <button class="glass-btn" id="btn-scan-folder"><i class="fas fa-folder-open"></i> اسکن پوشه</button>
+    <button class="glass-btn" id="btn-scan-folder"><i class="fas fa-folder-open"></i> افزودن / اسکن پوشه</button>
     <label class="glass-btn"><i class="fas fa-file-audio"></i> انتخاب فایل<input type="file" id="file-input" multiple accept="audio/*,video/*"></label>
   </div>
   <div class="filter-row">
@@ -196,7 +196,7 @@ let scene, camera, renderer, particlesMesh, animationFrame = 0;
 
 // Persistent local library: audio files are stored in IndexedDB on this device.
 const LIB_DB_NAME = 'AuraSoundLibraryDB', LIB_DB_VERSION = 1;
-let libDbPromise = null, savedDirectoryHandle = null, isRestoringLibrary = false;
+let libDbPromise = null, savedDirectoryHandles = [], isRestoringLibrary = false;
 function openLibraryDB() {
   if (libDbPromise) return libDbPromise;
   libDbPromise = new Promise((resolve, reject) => {
@@ -233,10 +233,10 @@ async function deleteTrackFromLibrary(id) {
 }
 async function saveDirectoryHandle(handle) {
   try {
+    if (!savedDirectoryHandles.some(item => item.name === handle.name)) savedDirectoryHandles.push(handle);
     const db=await openLibraryDB();
-    await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({key:'musicDirectory',handle});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
-    savedDirectoryHandle=handle;
-  } catch(e) { console.warn('Directory handle could not be saved',e); }
+    await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({key:'musicDirectories',handles:savedDirectoryHandles});tx.objectStore('settings').delete('musicDirectory');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+  } catch(e) { console.warn('Directory handles could not be saved',e); }
 }
 async function restoreLibrary() {
   if (isRestoringLibrary) return;
@@ -249,40 +249,41 @@ async function restoreLibrary() {
       if(known.has(rec.id)||!rec.file) continue;
       playlist.push({id:rec.id,name:rec.name,size:rec.size,date:rec.date,album:rec.album,file:rec.file,url:URL.createObjectURL(rec.file),isVideo:!!rec.isVideo});
     }
-    const setting=await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readonly');const req=tx.objectStore('settings').get('musicDirectory');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});
-    if(setting && setting.handle) savedDirectoryHandle=setting.handle;
+    const settings=await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readonly');const req=tx.objectStore('settings').get('musicDirectories');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});
+    if(settings && Array.isArray(settings.handles)) savedDirectoryHandles=settings.handles;
+    else {
+      const legacy=await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readonly');const req=tx.objectStore('settings').get('musicDirectory');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});
+      if(legacy && legacy.handle) savedDirectoryHandles=[legacy.handle];
+    }
     if(playlist.length){sortPlaylist();if(currentIndex===-1)loadTrack(0,false);}
     // If a previously granted folder is still available, silently check it on app open.
-    if(savedDirectoryHandle && 'showDirectoryPicker' in window) {
-      try {
-        const permission=await savedDirectoryHandle.queryPermission({mode:'read'});
-        if(permission==='granted') await syncSavedDirectory(false);
-      } catch(e) { console.debug('Saved folder permission needs refresh',e); }
+    if(savedDirectoryHandles.length && 'showDirectoryPicker' in window) {
+      try { await syncSavedDirectory(false); }
+      catch(e) { console.debug('Saved folder permission needs refresh',e); }
     }
   } catch(e) { console.warn('Library restore failed',e); }
   finally { isRestoringLibrary=false; }
 }
 async function syncSavedDirectory(showMessages=false) {
-  if(!savedDirectoryHandle) return;
+  if(!savedDirectoryHandles.length) return;
   try {
-    const permission=await savedDirectoryHandle.queryPermission({mode:'read'});
-    if(permission!=='granted') {
-      if(showMessages) alert('برای بررسی خودکار آهنگ‌های جدید، دوباره دسترسی پوشه را تأیید کن و گزینه اسکن پوشه را بزن.');
-      return;
-    }
-    const found=[];
-    await scanDirectoryRecursive(savedDirectoryHandle,savedDirectoryHandle.name,found);
-    let added=0;
-    for(const item of found) {
-      const duplicate=playlist.some(t=>t.name===item.name&&t.size===item.size&&t.date===item.date&&t.album===item.album);
-      if(duplicate){try{URL.revokeObjectURL(item.url)}catch(_){};continue;}
-      playlist.push(item); await saveTrackToLibrary(item); added++;
+    let added=0, needsPermission=0;
+    for(const handle of savedDirectoryHandles) {
+      const permission=await handle.queryPermission({mode:'read'});
+      if(permission!=='granted') { needsPermission++; continue; }
+      const found=[];
+      await scanDirectoryRecursive(handle,handle.name,found);
+      for(const item of found) {
+        const duplicate=playlist.some(t=>t.name===item.name&&t.size===item.size&&t.date===item.date&&t.album===item.album);
+        if(duplicate){try{URL.revokeObjectURL(item.url)}catch(_){};continue;}
+        playlist.push(item); await saveTrackToLibrary(item); added++;
+      }
     }
     if(added){sortPlaylist();if(currentIndex===-1)loadTrack(0,false);}
-    if(showMessages) alert(added?`${added.toLocaleString('fa-IR')} آهنگ جدید اضافه شد.`:'آهنگ جدیدی پیدا نشد.');
+    if(showMessages) alert((added?`${added.toLocaleString('fa-IR')} آهنگ جدید اضافه شد.`:'آهنگ جدیدی پیدا نشد.')+(needsPermission?`\nبرای ${needsPermission} پوشه باید دوباره مجوز بدهید.`:''));
   } catch(e) {
     console.warn('Folder sync failed',e);
-    if(showMessages) alert('بررسی پوشه انجام نشد. ممکن است مرورگر دوباره اجازه دسترسی بخواهد.');
+    if(showMessages) alert('بررسی پوشه‌ها انجام نشد. ممکن است مرورگر دوباره اجازه دسترسی بخواهد.');
   }
 }
 
@@ -759,7 +760,7 @@ window.auraCloudBridge = {
 // The companion service-worker file is included in the downloadable PWA package.
 // Restore the saved playlist on every launch; no repeat scan is needed for already-added tracks.
 window.addEventListener('load', () => { restoreLibrary(); });
-document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible' && savedDirectoryHandle) syncSavedDirectory(false); });
+document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible' && savedDirectoryHandles.length) syncSavedDirectory(false); });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   window.addEventListener('load', () => {
