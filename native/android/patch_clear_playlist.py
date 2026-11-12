@@ -15,11 +15,11 @@ if 'id="btn-clear-playlist"' not in html:
     if count_match:
         inner = inner.replace(
             count_match.group(1),
-            '<span class="playlist-heading-actions">' + count_match.group(1) + '<button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i> پاک کردن فهرست</button></span>',
+            '<span class="playlist-heading-actions">' + count_match.group(1) + '<button class="clear-playlist-btn" id="btn-clear-playlist" type="button" title="پاک کردن فهرست" aria-label="پاک کردن فهرست"><i class="fas fa-trash-alt"></i></button></span>',
             1,
         )
     else:
-        inner += '<button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i> پاک کردن فهرست</button>'
+        inner += '<button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i></button>'
     html = html[:heading_match.start()] + heading_match.group(1) + inner + heading_match.group(3) + html[heading_match.end():]
 
 css_anchor = ".playlist-heading{"
