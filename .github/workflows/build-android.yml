@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - fix/android-mediascan-playlists
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -22,13 +26,19 @@ jobs:
           unzip -o AuraSound-3D-Player-Android-Native-Update.zip -d /tmp/aura-update
           cp -a /tmp/aura-update/. .
           python3 native/android/patch_clear_playlist.py index.html
+          python3 native/android/patch_native_library.py
 
       - name: Verify updated source
         run: |
           grep -q "btn-create-playlist" index.html
+          grep -q "btn-delete-playlist" index.html
+          ! grep -q 'id="btn-scan-folder"' index.html
+          grep -q "mergeNativeTracks" index.html
           grep -q "toggleFavorite" index.html
           grep -q "startWatchingLibrary" index.html
           grep -q "registerMediaStoreObserver" native/android/AuraNativePlugin.java
+          grep -q "legacyAudio" native/android/AuraNativePlugin.java
+          grep -q 'android:maxSdkVersion="32"' native/android/patch_manifest.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
