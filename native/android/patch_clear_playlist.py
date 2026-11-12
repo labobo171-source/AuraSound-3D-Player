@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 """Apply the shared clear-playlist UI and behavior to the Android bundle's index.html."""
 from pathlib import Path
+import re
 
 path = Path(__file__).resolve().parents[2] / "index.html"
 html = path.read_text(encoding="utf-8")
 
-heading = '<div class="playlist-heading"><span><i class="fas fa-list-music"></i> فهرست پخش</span><span id="track-count">۰ آهنگ</span></div>'
+heading_match = re.search(r'(<div class="playlist-heading"[^>]*>)(.*?)(</div>)', html, re.S)
 if 'id="btn-clear-playlist"' not in html:
-    if heading not in html:
+    if not heading_match:
         raise SystemExit("Could not find playlist heading in Android index.html")
-    html = html.replace(
-        heading,
-        '<div class="playlist-heading"><span><i class="fas fa-list-music"></i> فهرست پخش</span><span class="playlist-heading-actions"><span id="track-count">۰ آهنگ</span><button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i> پاک کردن فهرست</button></span></div>',
-        1,
-    )
+    inner = heading_match.group(2)
+    count_match = re.search(r'(<span id="track-count"[^>]*>.*?</span>)', inner, re.S)
+    if count_match:
+        inner = inner.replace(
+            count_match.group(1),
+            '<span class="playlist-heading-actions">' + count_match.group(1) + '<button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i> پاک کردن فهرست</button></span>',
+            1,
+        )
+    else:
+        inner += '<button class="clear-playlist-btn" id="btn-clear-playlist" type="button"><i class="fas fa-trash-alt"></i> پاک کردن فهرست</button>'
+    html = html[:heading_match.start()] + heading_match.group(1) + inner + heading_match.group(3) + html[heading_match.end():]
 
 css_anchor = ".playlist-heading{"
 if ".clear-playlist-btn{" not in html:
