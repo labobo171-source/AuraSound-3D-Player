@@ -31,6 +31,7 @@ jobs:
           cp /tmp/patch_native_library.py native/android/patch_native_library.py
           python3 native/android/patch_clear_playlist.py index.html
           python3 native/android/patch_native_library.py
+          python3 native/android/patch_media_controls.py
 
       - name: Verify updated source
         run: |
@@ -39,6 +40,8 @@ jobs:
           ! grep -q 'id="btn-scan-folder"' index.html
           grep -q "mergeNativeTracks" index.html
           grep -q "toggleFavorite" index.html
+          grep -q "function seekFromPointer(e)" index.html
+          grep -q "artwork:" index.html
           grep -q "startWatchingLibrary" index.html
           grep -q "registerMediaStoreObserver" native/android/AuraNativePlugin.java
           grep -q "legacyAudio" native/android/AuraNativePlugin.java

@@ -563,14 +563,19 @@ function updateMediaSession() {
     if ('MediaMetadata' in window) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.name || 'AuraSound 3D',
-        artist: track.album || 'AuraSound 3D Player',
-        album: 'AuraSound Playlist'
+        artist: track.artist || track.album || 'AuraSound 3D Player',
+        album: track.album || 'AuraSound Playlist',
+        artwork: [
+          { src: new URL('./icons/icon-192.png', document.baseURI).href, sizes: '192x192', type: 'image/png' },
+          { src: new URL('./icons/icon-512.png', document.baseURI).href, sizes: '512x512', type: 'image/png' }
+        ]
       });
     }
     if (!mediaSessionHandlersInstalled) {
       const handlers = {
         play: () => { playTrack(); },
         pause: () => { pauseTrack(); },
+        stop: () => { pauseTrack(); },
         previoustrack: () => { playPrevious(); },
         nexttrack: () => { playNext(); },
         seekbackward: details => seekBy(-(details && details.seekOffset || 10)),
@@ -688,18 +693,51 @@ function updateProgress(media){
   });
 });
 function seekFromPointer(e){
-  const media=activeMedia();if(!Number.isFinite(media.duration)||media.duration<=0)return;
+  const media=activeMedia();
+  if(!Number.isFinite(media.duration)||media.duration<=0)return;
   const rect=progressWrapper.getBoundingClientRect();
-  const x=Math.max(0,Math.min(rect.width,e.clientX-rect.left));
-  const ratio=x/rect.width;media.currentTime=ratio*media.duration;
-  progressFill.style.width=`${ratio*100}%`;currentTimeEl.textContent=formatTime(media.currentTime);
+  if(!rect.width)return;
+  const clientX=Number.isFinite(e.clientX)?e.clientX:
+    (e.changedTouches&&e.changedTouches.length?e.changedTouches[0].clientX:NaN);
+  if(!Number.isFinite(clientX))return;
+  const x=Math.max(0,Math.min(rect.width,clientX-rect.left));
+  const ratio=x/rect.width;
+  media.currentTime=ratio*media.duration;
+  progressFill.style.width=String(ratio*100)+'%';
+  currentTimeEl.textContent=formatTime(media.currentTime);
+  progressWrapper.setAttribute('aria-valuenow',String(Math.round(ratio*100)));
+  updateMediaSession();
 }
-progressWrapper.addEventListener('pointerdown',e=>{if(currentIndex<0)return;isDragging=true;progressWrapper.setPointerCapture(e.pointerId);seekFromPointer(e);});
+let lastSeekCompletion=0;
+progressWrapper.addEventListener('pointerdown',e=>{
+  if(currentIndex<0)return;
+  e.preventDefault();
+  isDragging=true;
+  try{progressWrapper.setPointerCapture(e.pointerId);}catch(_){}
+  seekFromPointer(e);
+});
 progressWrapper.addEventListener('pointermove',e=>{if(isDragging)seekFromPointer(e);});
-function stopDragging(e){if(!isDragging)return;seekFromPointer(e);isDragging=false;}
-progressWrapper.addEventListener('pointerup',stopDragging);progressWrapper.addEventListener('pointercancel',()=>{isDragging=false;});
-progressWrapper.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();seekBy(e.key==='ArrowRight'?5:-5);}});
-
+function stopDragging(e){
+  if(!isDragging)return;
+  seekFromPointer(e);
+  isDragging=false;
+  lastSeekCompletion=Date.now();
+}
+progressWrapper.addEventListener('pointerup',stopDragging);
+progressWrapper.addEventListener('pointercancel',e=>{
+  if(isDragging)seekFromPointer(e);
+  isDragging=false;
+});
+/* Fallback for WebViews/devices that dispatch click but miss pointerup. */
+progressWrapper.addEventListener('click',e=>{
+  if(Date.now()-lastSeekCompletion>350)seekFromPointer(e);
+});
+progressWrapper.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+    e.preventDefault();
+    seekBy(e.key==='ArrowRight'?5:-5);
+  }
+});
 $('btn-open-sheet').addEventListener('click',()=>audioSheet.classList.add('open'));
 $('btn-close-sheet').addEventListener('click',()=>audioSheet.classList.remove('open'));
 $('btn-car-mode').addEventListener('click',()=>{carModeOverlay.classList.add('active');carModeOverlay.setAttribute('aria-hidden','false');});
