@@ -102,7 +102,7 @@ call_anchor = "function updateMediaSession() {"
 call_line = "  try { syncNativeMediaSession(playlist[currentIndex], activeMedia()); } catch (_) {}"
 if call_line not in html:
     if call_anchor not in html: raise SystemExit("Media Session update function not found for native bridge")
-    html = html.replace(call_anchor, call_anchor + "\\n" + call_line, 1)
+    html = html.replace(call_anchor, call_anchor + "\n" + call_line, 1)
 
 path.write_text(html, encoding="utf-8")
 print("Seeking and Android Media Session metadata patched.")
