@@ -42,6 +42,9 @@ jobs:
           grep -q "toggleFavorite" index.html
           grep -q "function seekFromPointer(e)" index.html
           grep -q "artwork:" index.html
+          grep -q "touchstart" index.html
+          grep -q "syncNativeMediaSession" index.html
+          grep -q "updateCarMediaSession" index.html
           grep -q "startWatchingLibrary" index.html
           grep -q "registerMediaStoreObserver" native/android/AuraNativePlugin.java
           grep -q "legacyAudio" native/android/AuraNativePlugin.java
