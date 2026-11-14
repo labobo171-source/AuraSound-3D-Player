@@ -36,47 +36,32 @@ seek_code = r"""function seekFromPointer(e){
   if(!Number.isFinite(media.duration)||media.duration<=0)return;
   const rect=progressWrapper.getBoundingClientRect();
   if(!rect.width)return;
-  const clientX=Number.isFinite(e.clientX)?e.clientX:
-    (e.changedTouches&&e.changedTouches.length?e.changedTouches[0].clientX:NaN);
+  const point=(e.changedTouches&&e.changedTouches.length)?e.changedTouches[0]:((e.touches&&e.touches.length)?e.touches[0]:e);
+  let clientX=Number(point.clientX);
+  if(!Number.isFinite(clientX)&&Number.isFinite(point.offsetX))clientX=rect.left+point.offsetX;
   if(!Number.isFinite(clientX))return;
   const x=Math.max(0,Math.min(rect.width,clientX-rect.left));
   const ratio=x/rect.width;
-  media.currentTime=ratio*media.duration;
-  progressFill.style.width=String(ratio*100)+'%';
-  currentTimeEl.textContent=formatTime(media.currentTime);
-  progressWrapper.setAttribute('aria-valuenow',String(Math.round(ratio*100)));
+  const target=ratio*media.duration;
+  try{media.currentTime=target;}catch(error){console.warn("Seeking failed:",error);return;}
+  progressFill.style.width=String(ratio*100)+"%";
+  currentTimeEl.textContent=formatTime(target);
+  progressWrapper.setAttribute("aria-valuenow",String(Math.round(ratio*100)));
   updateMediaSession();
 }
-let lastSeekCompletion=0;
-progressWrapper.addEventListener('pointerdown',e=>{
-  if(currentIndex<0)return;
-  e.preventDefault();
-  isDragging=true;
-  try{progressWrapper.setPointerCapture(e.pointerId);}catch(_){}
-  seekFromPointer(e);
-});
-progressWrapper.addEventListener('pointermove',e=>{if(isDragging)seekFromPointer(e);});
-function stopDragging(e){
-  if(!isDragging)return;
-  seekFromPointer(e);
-  isDragging=false;
-  lastSeekCompletion=Date.now();
-}
-progressWrapper.addEventListener('pointerup',stopDragging);
-progressWrapper.addEventListener('pointercancel',e=>{
-  if(isDragging)seekFromPointer(e);
-  isDragging=false;
-});
-/* Fallback for WebViews/devices that dispatch click but miss pointerup. */
-progressWrapper.addEventListener('click',e=>{
-  if(Date.now()-lastSeekCompletion>350)seekFromPointer(e);
-});
-progressWrapper.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
-    e.preventDefault();
-    seekBy(e.key==='ArrowRight'?5:-5);
-  }
-});"""
+progressWrapper.addEventListener("pointerdown",e=>{if(currentIndex<0)return;e.preventDefault();isDragging=true;try{progressWrapper.setPointerCapture(e.pointerId);}catch(_){}seekFromPointer(e);});
+progressWrapper.addEventListener("pointermove",e=>{if(isDragging)seekFromPointer(e);});
+function stopDragging(e){if(!isDragging)return;seekFromPointer(e);isDragging=false;}
+progressWrapper.addEventListener("pointerup",stopDragging);
+progressWrapper.addEventListener("pointercancel",e=>{if(isDragging)seekFromPointer(e);isDragging=false;});
+/* Touch fallback for Android WebViews that do not deliver PointerEvents consistently. */
+progressWrapper.addEventListener("touchstart",e=>{if(currentIndex<0)return;isDragging=true;seekFromPointer(e);},{passive:true});
+progressWrapper.addEventListener("touchmove",e=>{if(isDragging)seekFromPointer(e);},{passive:true});
+progressWrapper.addEventListener("touchend",e=>{if(isDragging)seekFromPointer(e);isDragging=false;},{passive:true});
+/* Always handle click as a final fallback, including taps that only emit click. */
+progressWrapper.addEventListener("click",e=>seekFromPointer(e));
+progressWrapper.addEventListener("keydown",e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();seekBy(e.key==="ArrowRight"?5:-5);}});
+"""
 html, count = re.subn(
     r"function seekFromPointer\(e\)\s*\{.*?progressWrapper\.addEventListener\('keydown',e=>\{.*?\}\);\s*",
     seek_code + "\n",
