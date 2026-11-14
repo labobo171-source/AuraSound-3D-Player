@@ -97,9 +97,9 @@ function syncNativeMediaSession(track, media){
 if "function syncNativeMediaSession(track, media)" not in html:
     anchor = "function updateMediaSession() {"
     if anchor not in html: raise SystemExit("Media Session update function not found for native bridge")
-    html = html.replace(anchor, native_sync + "\\n" + anchor, 1)
-update_anchor = "function updateMediaSession() {\\n  if (!('mediaSession' in navigator)) return;"
-update_replacement = "function updateMediaSession() {\\n  try { syncNativeMediaSession(playlist[currentIndex], activeMedia()); } catch (_) {}\\n  if (!('mediaSession' in navigator)) return;"
+    html = html.replace(anchor, native_sync + "\n" + anchor, 1)
+update_anchor = "function updateMediaSession() {\n  if (!('mediaSession' in navigator)) return;"
+update_replacement = "function updateMediaSession() {\n  try { syncNativeMediaSession(playlist[currentIndex], activeMedia()); } catch (_) {}\n  if (!('mediaSession' in navigator)) return;"
 if update_anchor in html: html=html.replace(update_anchor, update_replacement, 1)
 elif "syncNativeMediaSession(playlist[currentIndex], activeMedia())" not in html:
     raise SystemExit("Could not connect native session to updateMediaSession")
