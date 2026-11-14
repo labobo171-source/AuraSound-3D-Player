@@ -98,11 +98,11 @@ if "function syncNativeMediaSession(track, media)" not in html:
     anchor = "function updateMediaSession() {"
     if anchor not in html: raise SystemExit("Media Session update function not found for native bridge")
     html = html.replace(anchor, native_sync + "\n" + anchor, 1)
-update_anchor = "function updateMediaSession() {\n  if (!('mediaSession' in navigator)) return;"
-update_replacement = "function updateMediaSession() {\n  try { syncNativeMediaSession(playlist[currentIndex], activeMedia()); } catch (_) {}\n  if (!('mediaSession' in navigator)) return;"
-if update_anchor in html: html=html.replace(update_anchor, update_replacement, 1)
-elif "syncNativeMediaSession(playlist[currentIndex], activeMedia())" not in html:
-    raise SystemExit("Could not connect native session to updateMediaSession")
+call_anchor = "function updateMediaSession() {"
+call_line = "  try { syncNativeMediaSession(playlist[currentIndex], activeMedia()); } catch (_) {}"
+if call_line not in html:
+    if call_anchor not in html: raise SystemExit("Media Session update function not found for native bridge")
+    html = html.replace(call_anchor, call_anchor + "\\n" + call_line, 1)
 
 path.write_text(html, encoding="utf-8")
 print("Seeking and Android Media Session metadata patched.")
