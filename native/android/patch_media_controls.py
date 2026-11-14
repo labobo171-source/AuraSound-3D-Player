@@ -63,7 +63,7 @@ progressWrapper.addEventListener("click",e=>seekFromPointer(e));
 progressWrapper.addEventListener("keydown",e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();seekBy(e.key==="ArrowRight"?5:-5);}});
 """
 html, count = re.subn(
-    r"function seekFromPointer\(e\)\s*\{.*?progressWrapper\.addEventListener\('keydown',e=>\{.*?\}\);\s*",
+    r"function seekFromPointer\(e\)\s*\{.*?progressWrapper\.addEventListener\([\"\']keydown[\"\'],e=>\{.*?\}\);\s*",
     seek_code + "\n",
     html,
     count=1,
