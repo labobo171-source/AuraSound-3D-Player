@@ -72,5 +72,37 @@ html, count = re.subn(
 if count != 1:
     raise SystemExit("Could not locate progress-bar pointer handlers")
 
+# Bridge the browser player state into the native Android MediaSession.
+# The Android plugin exposes updateCarMediaSession and emits mediaControl events.
+native_sync = r"""let nativeSessionTrackId = null;
+let nativeSessionPlaying = null;
+let nativeSessionPosition = 0;
+let nativeSessionUpdatedAt = 0;
+function syncNativeMediaSession(track, media){
+  const plugin=window.Capacitor?.Plugins?.AuraNative;
+  if(!track||!plugin||!window.Capacitor?.isNativePlatform?.()||typeof plugin.updateCarMediaSession!=="function")return;
+  const playing=!!(media&&!media.paused&&!media.ended);
+  const position=Math.max(0,Number(media&&media.currentTime)||0);
+  const duration=Number.isFinite(media&&media.duration)&&media.duration>0?media.duration:(Number(track.duration)||0)/1000;
+  const now=Date.now();
+  const changed=track.id!==nativeSessionTrackId||playing!==nativeSessionPlaying||Math.abs(position-nativeSessionPosition)>2.5;
+  if(!changed&&now-nativeSessionUpdatedAt<1000)return;
+  nativeSessionTrackId=track.id; nativeSessionPlaying=playing; nativeSessionPosition=position; nativeSessionUpdatedAt=now;
+  try{
+    const result=plugin.updateCarMediaSession({title:track.name||"AuraSound 3D",artist:track.artist||track.album||"AuraSound 3D Player",playing:playing,position:Math.round(position*1000),duration:Math.round(Math.max(0,duration)*1000),artworkUri:track.nativeUri||""});
+    if(result&&typeof result.catch==="function")result.catch(error=>console.debug("Native MediaSession update:",error));
+  }catch(error){console.debug("Native MediaSession unavailable:",error);}
+}
+"""
+if "function syncNativeMediaSession(track, media)" not in html:
+    anchor = "function updateMediaSession() {"
+    if anchor not in html: raise SystemExit("Media Session update function not found for native bridge")
+    html = html.replace(anchor, native_sync + "\\n" + anchor, 1)
+update_anchor = "function updateMediaSession() {\\n  if (!('mediaSession' in navigator)) return;"
+update_replacement = "function updateMediaSession() {\\n  try { syncNativeMediaSession(playlist[currentIndex], activeMedia()); } catch (_) {}\\n  if (!('mediaSession' in navigator)) return;"
+if update_anchor in html: html=html.replace(update_anchor, update_replacement, 1)
+elif "syncNativeMediaSession(playlist[currentIndex], activeMedia())" not in html:
+    raise SystemExit("Could not connect native session to updateMediaSession")
+
 path.write_text(html, encoding="utf-8")
 print("Seeking and Android Media Session metadata patched.")
