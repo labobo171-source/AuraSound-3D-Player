@@ -38,7 +38,8 @@ seek_code = r"""function seekFromPointer(e){
   if(!rect.width)return;
   const point=(e.changedTouches&&e.changedTouches.length)?e.changedTouches[0]:((e.touches&&e.touches.length)?e.touches[0]:e);
   let clientX=Number(point.clientX);
-  if(!Number.isFinite(clientX)&&Number.isFinite(point.offsetX))clientX=rect.left+point.offsetX;
+  if(!Number.isFinite(clientX)&&Number.isFinite(point.pageX))clientX=point.pageX-(window.scrollX||0);
+  if(!Number.isFinite(clientX)&&e.target===progressWrapper&&Number.isFinite(point.offsetX))clientX=rect.left+point.offsetX;
   if(!Number.isFinite(clientX))return;
   const x=Math.max(0,Math.min(rect.width,clientX-rect.left));
   const ratio=x/rect.width;
@@ -79,8 +80,10 @@ let nativeSessionPlaying = null;
 let nativeSessionPosition = 0;
 let nativeSessionUpdatedAt = 0;
 function syncNativeMediaSession(track, media){
-  const plugin=window.Capacitor?.Plugins?.AuraNative;
-  if(!track||!plugin||!window.Capacitor?.isNativePlatform?.()||typeof plugin.updateCarMediaSession!=="function")return;
+  const cap=window.Capacitor;
+  const plugin=cap?.Plugins?.AuraNative||window.AuraNative||null;
+  const nativePlatform=!!(cap?.isNativePlatform?.()||cap?.getPlatform?.()==="android");
+  if(!track||!plugin||!nativePlatform||typeof plugin.updateCarMediaSession!=="function")return;
   const playing=!!(media&&!media.paused&&!media.ended);
   const position=Math.max(0,Number(media&&media.currentTime)||0);
   const duration=Number.isFinite(media&&media.duration)&&media.duration>0?media.duration:(Number(track.duration)||0)/1000;
