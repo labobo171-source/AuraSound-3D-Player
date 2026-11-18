@@ -401,8 +401,6 @@ jobs:
           import androidx.compose.foundation.shape.CircleShape
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.rounded.MusicNote
-          import androidx.compose.material.icons.rounded.GraphicEq
-          import androidx.compose.material.icons.rounded.LibraryMusic
           import androidx.compose.material3.Icon
           import androidx.compose.runtime.Composable
           import androidx.compose.runtime.getValue
@@ -653,7 +651,6 @@ jobs:
           import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.rounded.Casino
-          import androidx.compose.material.icons.rounded.GraphicEq
           import androidx.compose.material.icons.rounded.Refresh
           import androidx.compose.material.icons.rounded.Share
           import androidx.compose.material3.Card
@@ -780,7 +777,7 @@ jobs:
                   colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
                   Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.GraphicEq, null, tint = p.b, modifier = Modifier.size(19.dp))
+                          Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(19.dp))
                           Column(Modifier.weight(1f).padding(start = 7.dp)) {
                               Text("استودیو صدا", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                               Text("کنترل‌های چرخشی", color = TextLo, fontSize = 9.sp)
@@ -1302,8 +1299,8 @@ jobs:
                           horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                           val navItems = listOf(
                               Triple("پخش", Icons.Rounded.MusicNote, 0),
-                              Triple("اکولایزر", Icons.Rounded.GraphicEq, 1),
-                              Triple("آهنگ‌ها", Icons.Rounded.LibraryMusic, 2)
+                              Triple("اکولایزر", Icons.Rounded.VolumeUp, 1),
+                              Triple("آهنگ‌ها", Icons.Rounded.Search, 2)
                           )
                           navItems.forEach { (label, navIcon, index) ->
                               val selected = page == index
