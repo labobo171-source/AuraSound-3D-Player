@@ -1382,28 +1382,20 @@ jobs:
                   val gy = gc.get(java.util.Calendar.YEAR)
                   val gm = gc.get(java.util.Calendar.MONTH) + 1
                   val gd = gc.get(java.util.Calendar.DAY_OF_MONTH)
-                  val gdm = intArrayOf(0,31,if (java.util.GregorianCalendar().isLeapYear(gy)) 29 else 28,31,30,31,30,31,31,30,31,30,31)
-                  var jy = gy - 621
-                  var days = 0
-                  for (m in 1 until gm) days += gdm[m]
-                  days += gd
-                  val marchDay = if (java.util.GregorianCalendar().isLeapYear(gy)) 20 else 21
-                  if (days > marchDay) {
-                      days -= marchDay
-                  } else {
-                      jy -= 1
-                      days += if (java.util.GregorianCalendar().isLeapYear(gy - 1)) 366 - 79 else 365 - 79
+                  val monthDays = intArrayOf(0,31,59,90,120,151,181,212,243,273,304,334)
+                  val gy2 = if (gm > 2) gy + 1 else gy
+                  var days = 355666L + 365L * gy + (gy2 + 3) / 4 -
+                      (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + monthDays[gm - 1]
+                  var jy = -1595L + 33L * (days / 12053L)
+                  days %= 12053L
+                  jy += 4L * (days / 1461L)
+                  days %= 1461L
+                  if (days > 365L) {
+                      jy += (days - 1L) / 365L
+                      days = (days - 1L) % 365L
                   }
-                  var jm: Int
-                  var jd: Int
-                  if (days <= 186) {
-                      jm = (days - 1) / 31 + 1
-                      jd = (days - 1) % 31 + 1
-                  } else {
-                      val rest = days - 186
-                      jm = (rest - 1) / 30 + 7
-                      jd = (rest - 1) % 30 + 1
-                  }
+                  val jm = if (days < 186L) 1L + days / 31L else 7L + (days - 186L) / 30L
+                  val jd = 1L + if (days < 186L) days % 31L else (days - 186L) % 30L
                   val raw = "%04d/%02d/%02d".format(Locale.US, jy, jm, jd)
                   val digits = "۰۱۲۳۴۵۶۷۸۹"
                   raw.map { ch -> if (ch in '0'..'9') digits[ch - '0'] else ch }.joinToString("")
