@@ -181,6 +181,7 @@ jobs:
               val vocalAmount: Float = 35f,
               val smartClarity: Boolean = false,
               val smartAmount: Float = 45f,
+              val crystalMixEnabled: Boolean = false,
               val safe: Boolean = true,
               val motion: Boolean = true,
               val spectrum: Boolean = true,
@@ -959,6 +960,49 @@ jobs:
                       Text("Crystal Audio", color = TextHi, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                       Text("شش ابزار برای وضوح، جزئیات و فضای استریو؛ تغییرات هنگام پخش اعمال می‌شوند.",
                           color = TextLo, fontSize = 11.sp)
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = if (s.crystalMixEnabled) Success.copy(alpha = 0.16f) else p.a.copy(alpha = 0.13f))) {
+                      Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("میکس هوشمند کریستال", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                  Text("تنظیم هماهنگ هر شش افکت برای صدای شفاف و متعادل", color = TextLo, fontSize = 10.sp)
+                              }
+                              Badge(if (s.crystalMixEnabled) "فعال" else "آماده", if (s.crystalMixEnabled) Success else p.b)
+                          }
+                          Button(
+                              onClick = {
+                                  Sound.set { current ->
+                                      if (current.crystalMixEnabled) {
+                                          current.copy(
+                                              crystalMixEnabled = false,
+                                              crystalClear = false,
+                                              stereoWidthEnabled = false,
+                                              ultraTreble = false,
+                                              dynamicClarity = false,
+                                              vocalEnhancer = false,
+                                              smartClarity = false
+                                          )
+                                      } else {
+                                          current.copy(
+                                              crystalMixEnabled = true,
+                                              crystalClear = true, crystalAmount = 48f,
+                                              stereoWidthEnabled = true, stereoWidth = 38f,
+                                              ultraTreble = true, trebleAmount = 28f,
+                                              dynamicClarity = true, dynamicAmount = 52f,
+                                              vocalEnhancer = true, vocalAmount = 42f,
+                                              smartClarity = true, smartAmount = 36f
+                                          )
+                                      }
+                                  }
+                              },
+                              modifier = Modifier.fillMaxWidth(),
+                              colors = ButtonDefaults.buttonColors(containerColor = if (s.crystalMixEnabled) Success else p.a)
+                          ) {
+                              Text(if (s.crystalMixEnabled) "غیرفعال‌کردن میکس هوشمند" else "اعمال بهترین میکس")
+                          }
+                      }
                   }
                   Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
                       colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
