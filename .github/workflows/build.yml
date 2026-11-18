@@ -777,7 +777,7 @@ jobs:
                   colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
                   Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(19.dp))
+                          Icon(Icons.Rounded.Refresh, null, tint = p.b, modifier = Modifier.size(19.dp))
                           Column(Modifier.weight(1f).padding(start = 7.dp)) {
                               Text("استودیو صدا", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                               Text("کنترل‌های چرخشی", color = TextLo, fontSize = 9.sp)
