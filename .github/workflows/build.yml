@@ -1409,7 +1409,7 @@ jobs:
               ) {
                   Text(time, color = TextHi, fontSize = if (compact) 29.sp else 34.sp,
                       fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
-                  Text(date, color = TextLo, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                  Text(date, color = TextHi, fontSize = if (compact) 13.sp else 14.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
               }
           }
           
@@ -1665,70 +1665,117 @@ jobs:
                               }
                               1 -> Studio(p, s, info)
                               4 -> CrystalAudioPage(p, s)
-                              3 -> Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 24.dp),
+                              3 -> Column(
+                                  Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                                      .padding(horizontal = 18.dp, vertical = 12.dp),
                                   horizontalAlignment = Alignment.CenterHorizontally,
-                                  verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                                  Box(Modifier.size(112.dp).clip(CircleShape)
+                                  verticalArrangement = Arrangement.spacedBy(12.dp)
+                              ) {
+                                  Box(Modifier.size(72.dp).clip(CircleShape)
                                       .background(Brush.linearGradient(listOf(p.a, p.b))),
                                       contentAlignment = Alignment.Center) {
-                                      Icon(Icons.Rounded.DirectionsCar, null, tint = Color.White, modifier = Modifier.size(58.dp))
+                                      Icon(Icons.Rounded.DirectionsCar, null, tint = Color.White, modifier = Modifier.size(38.dp))
                                   }
                                   Text("حالت رانندگی", color = TextHi, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                   DigitalClock(p, compact = true)
+                                  // Keep the three essential driving controls directly below the clock.
+                                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                      Button(onClick = { player?.seekToPrevious() },
+                                          modifier = Modifier.weight(1f).height(82.dp),
+                                          colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
+                                          Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                              verticalArrangement = Arrangement.Center) {
+                                              Icon(Icons.Rounded.SkipPrevious, null, modifier = Modifier.size(36.dp))
+                                              Text("قبلی", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                          }
+                                      }
+                                      Button(onClick = { player?.let { if (it.isPlaying) it.pause() else it.play() } },
+                                          modifier = Modifier.weight(1.15f).height(82.dp),
+                                          colors = ButtonDefaults.buttonColors(containerColor = p.a)) {
+                                          Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                              verticalArrangement = Arrangement.Center) {
+                                              Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                                  null, modifier = Modifier.size(42.dp))
+                                              Text(if (playing) "توقف" else "پخش",
+                                                  fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                                          }
+                                      }
+                                      Button(onClick = { player?.seekToNext() },
+                                          modifier = Modifier.weight(1f).height(82.dp),
+                                          colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
+                                          Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                              verticalArrangement = Arrangement.Center) {
+                                              Icon(Icons.Rounded.SkipNext, null, modifier = Modifier.size(36.dp))
+                                              Text("بعدی", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                          }
+                                      }
+                                  }
+                                  Text(cur?.title ?: "آهنگی در حال پخش نیست", color = TextHi, fontSize = 14.sp,
+                                      fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                   Text("کنترل‌های ساده‌تر و افکت سه‌بعدی ملایم‌تر برای گوش‌دادن در خودرو",
                                       color = TextLo, fontSize = 12.sp)
                                   Toggle("حالت رانندگی ${if (s.drivingMode) "روشن" else "خاموش"}",
                                       s.drivingMode, Warning) {
                                       Sound.set { it.copy(drivingMode = !it.drivingMode) }
                                   }
-                                  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Overlay).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Overlay).padding(12.dp),
+                                      verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                       val maxDrive = dur.toFloat().coerceAtLeast(1f)
-                                      Slider(value = pos.toFloat().coerceIn(0f, maxDrive), onValueChange = { player?.seekTo(it.toLong()) },
-                                          valueRange = 0f..maxDrive, colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a))
-                                      Row(Modifier.fillMaxWidth()) { Text(fmt(pos), color = TextLo, fontSize = 11.sp); Spacer(Modifier.weight(1f)); Text(fmt(dur), color = TextLo, fontSize = 11.sp) }
+                                      Slider(value = pos.toFloat().coerceIn(0f, maxDrive),
+                                          onValueChange = { player?.seekTo(it.toLong()) },
+                                          valueRange = 0f..maxDrive,
+                                          colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a))
+                                      Row(Modifier.fillMaxWidth()) {
+                                          Text(fmt(pos), color = TextLo, fontSize = 11.sp)
+                                          Spacer(Modifier.weight(1f))
+                                          Text(fmt(dur), color = TextLo, fontSize = 11.sp)
+                                      }
                                       Row(verticalAlignment = Alignment.CenterVertically) {
                                           Icon(Icons.Rounded.VolumeOff, null, tint = TextLo, modifier = Modifier.size(20.dp))
-                                          Slider(value = (player?.volume ?: 1f).coerceIn(0f, 1f), onValueChange = { player?.volume = it }, modifier = Modifier.weight(1f),
+                                          Slider(value = (player?.volume ?: 1f).coerceIn(0f, 1f),
+                                              onValueChange = { player?.volume = it }, modifier = Modifier.weight(1f),
                                               colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a))
                                           Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(20.dp))
                                       }
-                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                          Button(onClick = { player?.let { it.shuffleModeEnabled = !shuffle } }, modifier = Modifier.weight(1f).height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = if (shuffle) p.a else OverlayHi)) { Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(27.dp)); Text("Shuffle") }
-                                          Button(onClick = { player?.let { it.repeatMode = when (repeat) { Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL; Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF } } }, modifier = Modifier.weight(1f).height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = if (repeat != Player.REPEAT_MODE_OFF) p.a else OverlayHi)) { Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, null, modifier = Modifier.size(27.dp)); Text("تکرار") }
+                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                          verticalAlignment = Alignment.CenterVertically) {
+                                          Button(onClick = { player?.let { it.shuffleModeEnabled = !shuffle } },
+                                              modifier = Modifier.weight(1f).height(56.dp),
+                                              colors = ButtonDefaults.buttonColors(containerColor = if (shuffle) p.a else OverlayHi)) {
+                                              Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(24.dp))
+                                              Text("Shuffle")
+                                          }
+                                          Button(onClick = { player?.let { it.repeatMode = when (repeat) {
+                                              Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                              Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                                              else -> Player.REPEAT_MODE_OFF
+                                          } } }, modifier = Modifier.weight(1f).height(56.dp),
+                                              colors = ButtonDefaults.buttonColors(containerColor = if (repeat != Player.REPEAT_MODE_OFF) p.a else OverlayHi)) {
+                                              Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                                  null, modifier = Modifier.size(24.dp))
+                                              Text("تکرار")
+                                          }
                                           val currentDrive = cur
-                                          Button(onClick = { currentDrive?.let { toggleFavorite(it) } }, modifier = Modifier.weight(1f).height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) { Icon(if (currentDrive != null && currentDrive.id.toString() in favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, modifier = Modifier.size(27.dp)) }
-                                          Button(onClick = { currentDrive?.let { shareSong(it) } }, modifier = Modifier.weight(1f).height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) { Icon(Icons.Rounded.Share, null, modifier = Modifier.size(27.dp)) }
-                                      }
-                                  }
-                                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                      Button(onClick = { player?.seekToPrevious() }, modifier = Modifier.weight(1f).height(78.dp),
-                                          colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                              Icon(Icons.Rounded.SkipPrevious, null, modifier = Modifier.size(34.dp))
-                                              Text("قبلی", fontWeight = FontWeight.Bold)
+                                          Button(onClick = { currentDrive?.let { toggleFavorite(it) } },
+                                              modifier = Modifier.weight(1f).height(56.dp),
+                                              colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
+                                              Icon(if (currentDrive != null && currentDrive.id.toString() in favorites)
+                                                  Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null,
+                                                  modifier = Modifier.size(24.dp))
                                           }
-                                      }
-                                      Button(onClick = { player?.let { if (it.isPlaying) it.pause() else it.play() } },
-                                          modifier = Modifier.weight(1.15f).height(78.dp), colors = ButtonDefaults.buttonColors(containerColor = p.a)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                              Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, modifier = Modifier.size(38.dp))
-                                              Text(if (playing) "مکث" else "پخش", fontWeight = FontWeight.ExtraBold)
-                                          }
-                                      }
-                                      Button(onClick = { player?.seekToNext() }, modifier = Modifier.weight(1f).height(78.dp),
-                                          colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                              Icon(Icons.Rounded.SkipNext, null, modifier = Modifier.size(34.dp))
-                                              Text("بعدی", fontWeight = FontWeight.Bold)
+                                          Button(onClick = { currentDrive?.let { shareSong(it) } },
+                                              modifier = Modifier.weight(1f).height(56.dp),
+                                              colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
+                                              Icon(Icons.Rounded.Share, null, modifier = Modifier.size(24.dp))
                                           }
                                       }
                                   }
-                                  Text(cur?.title ?: "آهنگی در حال پخش نیست", color = TextHi, fontSize = 14.sp,
-                                      maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                      verticalAlignment = Alignment.CenterVertically) {
                                       val current = cur
                                       IconButton(onClick = { current?.let { toggleFavorite(it) } }, enabled = current != null) {
-                                          Icon(if (current != null && current.id.toString() in favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                          Icon(if (current != null && current.id.toString() in favorites)
+                                              Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                               "علاقه‌مندی", tint = if (current != null && current.id.toString() in favorites) Danger else p.b,
                                               modifier = Modifier.size(30.dp))
                                       }
