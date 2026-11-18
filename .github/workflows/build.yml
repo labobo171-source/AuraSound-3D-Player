@@ -56,8 +56,8 @@ jobs:
                   applicationId = "ir.player.music"
                   minSdk = 24
                   targetSdk = 34
-                  versionCode = 3
-                  versionName = "3.0"
+                  versionCode = 4
+                  versionName = "4.0"
               }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -166,7 +166,9 @@ jobs:
               val bass: Float = 0f,
               val treble: Float = 0f,
               val bands: List<Float> = List(8) { 0f },
-              val spatialEnabled: Boolean = false,
+              val surround3d: Boolean = false,
+              val speaker3d: Boolean = false,
+              val intensity: Float = 55f,
               val drivingMode: Boolean = false,
               val safe: Boolean = true,
               val motion: Boolean = true,
@@ -269,8 +271,15 @@ jobs:
                       amp?.setTargetGain((g * 100f).roundToInt())
                   } catch (_: Throwable) { }
                   try {
-                      virt?.enabled = on && s.spatialEnabled
-                      val strength = if (s.drivingMode) 300 else 450
+                      val modeScale = when {
+                          s.surround3d && s.speaker3d -> 0.82f
+                          s.surround3d -> 1f
+                          s.speaker3d -> 0.65f
+                          else -> 0f
+                      }
+                      val strength = (s.intensity.coerceIn(0f, 100f) * 10f * modeScale *
+                          if (s.drivingMode) 0.72f else 1f).roundToInt().coerceIn(0, 1000)
+                      virt?.enabled = on && modeScale > 0f && strength > 0
                       virt?.setStrength(strength.toShort())
                   } catch (_: Throwable) { }
                   val e = eq ?: return
@@ -279,11 +288,15 @@ jobs:
                       e.enabled = on
                       val lv = FloatArray(n)
                       if (on) {
-                          for (b in 0 until n) lv[b] = s.bands.getOrElse(b) { 0f } / 100f
-                          lv[bassIdx] += s.bass / 100f
-                          if (bassIdx + 1 < n) lv[bassIdx + 1] += s.bass / 200f
-                          lv[trebleIdx] += s.treble / 100f
-                          if (trebleIdx - 1 >= 0) lv[trebleIdx - 1] += s.treble / 200f
+                          for (b in 0 until n) {
+                              val hz = e.getCenterFreq(b.toShort()) / 1000
+                              lv[b] = when {
+                                  hz in 2500..7000 -> 0.065f
+                                  hz in 7001..12000 -> 0.03f
+                                  hz < 90 -> -0.018f
+                                  else -> 0f
+                              }
+                          }
                       }
                       for (b in 0 until n) {
                           val v = lv[b].coerceIn(-0.35f, 0.35f)
@@ -370,7 +383,7 @@ jobs:
                   }
                   scope.launch {
                       Sound.state.collect { st ->
-                          player?.volume = if (st.muted) 0f else Sound.outputGain(st)
+                          player?.volume = if (st.muted) 0f else Sound.outputGain(st) * 0.88f
                       }
                   }
               }
@@ -778,97 +791,42 @@ jobs:
           }
 
           @Composable
-          fun Studio(p: Pal, s: SoundState, info: EngineInfo,
-              onReset: () -> Unit, onRandom: () -> Unit, onExport: () -> Unit) {
-              var section by remember { mutableStateOf(0) }
+          fun Studio(p: Pal, s: SoundState, info: EngineInfo) {
               Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
                   shape = RoundedCornerShape(22.dp),
                   colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
-                  Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+                  Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                      verticalArrangement = Arrangement.spacedBy(13.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.Refresh, null, tint = p.b, modifier = Modifier.size(19.dp))
-                          Column(Modifier.weight(1f).padding(start = 7.dp)) {
-                              Text("استودیو صدا", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                              Text("کنترل‌های چرخشی", color = TextLo, fontSize = 9.sp)
+                          Icon(Icons.Rounded.SurroundSound, null, tint = p.b, modifier = Modifier.size(22.dp))
+                          Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                              Text("پردازش صدای سه‌بعدی", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                              Text("شفاف‌سازی ملایم صدا به‌صورت داخلی فعال است", color = TextLo, fontSize = 10.sp)
                           }
                           Switch(checked = s.power, onCheckedChange = { v -> Sound.set { it.copy(power = v) } },
                               colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = p.a,
                                   uncheckedThumbColor = TextLo, uncheckedTrackColor = OverlayHi,
                                   uncheckedBorderColor = Hairline))
                       }
-                      Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(13.dp))
-                          .background(Overlay).padding(3.dp)) {
-                          listOf("تنظیمات صدا", "باندهای EQ").forEachIndexed { i, label ->
-                              Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                                  .background(if (section == i) p.a.copy(alpha = 0.28f) else Color.Transparent)
-                                  .clickable { section = i }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                                  Text(label, color = if (section == i) p.b else TextLo, fontSize = 11.sp,
-                                      fontWeight = if (section == i) FontWeight.Bold else FontWeight.Normal)
-                              }
+                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Toggle("3D Surround", s.surround3d, Info) { Sound.set { it.copy(surround3d = !it.surround3d) } }
+                          Toggle("3D Speaker", s.speaker3d, p.b) { Sound.set { it.copy(speaker3d = !it.speaker3d) } }
+                      }
+                      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                          Column(Modifier.weight(1f)) {
+                              Text("Intensity", color = TextHi, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                              Text("شدت افکت سه‌بعدی", color = TextLo, fontSize = 9.sp)
+                          }
+                          Knob("Intensity", s.intensity, 0f..100f, "${s.intensity.toInt()}%", p.c, info.spatialOk) { v ->
+                              Sound.set { it.copy(intensity = v) }
                           }
                       }
-                      if (section == 0) {
-                          Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                              horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                              PRESETS.forEach { pr -> Chip(pr.name, p.b) {
-                                  Sound.set { it.copy(power = true, ampDb = pr.amp, bass = pr.bass,
-                                      treble = pr.treble, bands = presetCurve(pr.curve)) }
-                              } }
-                          }
-                          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                              Knob("تقویت", s.ampDb, 0f..(if (s.safe) 3.5f else 5f), "+${Sound.gain(s).toInt()} dB", p.a, info.ampOk) { v -> Sound.set { it.copy(ampDb = v) } }
-                              Knob("بیس", s.bass, -100f..100f, s.bass.toInt().toString(), p.b, info.eqOk) { v -> Sound.set { it.copy(bass = v) } }
-                              Knob("زیر", s.treble, -100f..100f, s.treble.toInt().toString(), p.c, info.eqOk) { v -> Sound.set { it.copy(treble = v) } }
-                          }
-                          Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                              horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                              Toggle("صدای سه‌بعدی", s.spatialEnabled, Info) {
-                                  Sound.set { it.copy(spatialEnabled = !it.spatialEnabled) }
-                              }
-                              Toggle("حالت رانندگی", s.drivingMode, Warning) {
-                                  Sound.set { it.copy(drivingMode = !it.drivingMode) }
-                              }
-                          }
-                          Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                              horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                              Toggle("ایمنی", s.safe, Warning) { Sound.set { it.copy(safe = !it.safe) } }
-                              Toggle("حرکت", s.motion, p.b) { Sound.set { it.copy(motion = !it.motion) } }
-                              Toggle("طیف", s.spectrum, p.c) { Sound.set { it.copy(spectrum = !it.spectrum) } }
-                              PALETTES.forEachIndexed { i, pal ->
-                                  Box(Modifier.size(27.dp).clip(CircleShape)
-                                      .background(Brush.sweepGradient(listOf(pal.a, pal.b, pal.c, pal.a)))
-                                      .border(if (s.palette == i) 2.dp else 1.dp,
-                                          if (s.palette == i) Color.White else Hairline, CircleShape)
-                                      .clickable { Sound.set { it.copy(palette = i) } })
-                              }
-                          }
-                      } else {
-                          info.freqs.indices.take(8).toList().chunked(4).forEach { indices ->
-                              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                  indices.forEach { i ->
-                                      val f = info.freqs[i]
-                                      val label = if (f >= 1000) "${f / 1000}k" else "$f"
-                                      val v = s.bands.getOrElse(i) { 0f }
-                                      Knob(label, v, -100f..100f, v.toInt().toString(),
-                                          listOf(p.a, p.b, p.c, Info, Success, Warning, Danger, p.a)[i % 8],
-                                          info.eqOk) { nv -> Sound.band(i, nv) }
-                                  }
-                              }
-                          }
-                          Text("تنظیم باندها بر اساس فرکانس واقعی اکولایزر گوشی.", color = TextLo, fontSize = 9.sp)
-                      }
-                      Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                          Action("بازنشانی", Icons.Rounded.Refresh, Danger, onReset)
-                          Action("تصادفی", Icons.Rounded.Casino, p.b, onRandom)
-                          Action("اشتراک", Icons.Rounded.Share, Success, onExport)
-                          Spacer(Modifier.weight(1f))
-                          Text(if (info.eqOk) "${info.freqs.size} باند" else "EQ ناموجود", color = TextLo, fontSize = 9.sp)
-                      }
-                      if (s.safe && s.ampDb > 3.5f) Text("حفاظت صدا: تقویت و اکولایزر با فضای امن کنترل می‌شوند.", color = Warning, fontSize = 9.sp)
+                      Text(if (info.spatialOk) "افکت سه‌بعدی با پشتیبانی دستگاه اعمال می‌شود." else
+                          "افکت سه‌بعدی به پشتیبانی خروجی صوتی دستگاه وابسته است.", color = TextLo, fontSize = 9.sp)
                   }
               }
           }
-          EOF
+                    EOF
           cat > app/src/main/java/ir/player/music/MainActivity.kt <<'EOF'
           package ir.player.music
 
@@ -923,6 +881,8 @@ jobs:
           import androidx.compose.material.icons.rounded.SkipPrevious
           import androidx.compose.material.icons.rounded.Undo
           import androidx.compose.material.icons.rounded.VolumeOff
+          import androidx.compose.material.icons.rounded.SurroundSound
+          import androidx.compose.material.icons.rounded.DirectionsCar
           import androidx.compose.material.icons.rounded.VolumeUp
           import androidx.compose.material3.Button
           import androidx.compose.material3.ButtonDefaults
@@ -1144,11 +1104,6 @@ jobs:
                               Text("موزیک", color = TextHi, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                               Text("${songs.size} آهنگ  ·  ${PALETTES[s.palette].name}", color = TextLo, fontSize = 11.sp)
                           }
-                          if (s.drivingMode) {
-                              Toggle("رانندگی روشن", true, Warning) {
-                                  Sound.set { it.copy(drivingMode = false) }
-                              }
-                          }
                           Row(Modifier.clip(RoundedCornerShape(50))
                               .background(if (s.muted) Danger.copy(alpha = 0.18f) else Success.copy(alpha = 0.16f))
                               .border(1.dp, if (s.muted) Danger.copy(alpha = 0.6f) else Success.copy(alpha = 0.5f), RoundedCornerShape(50))
@@ -1168,18 +1123,14 @@ jobs:
                                   horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
                                   Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                       Disc(p, playing, s.motion, if (s.drivingMode) 110.dp else 142.dp)
-                                      if (s.spectrum && !s.drivingMode) {
-                                          Spacer(Modifier.height(6.dp))
-                                          Spectrum(p, s, info.freqs, playing, Modifier.fillMaxWidth().height(40.dp))
-                                      }
                                       Spacer(Modifier.height(6.dp))
                                       Text(cur?.title ?: "یک آهنگ انتخاب کن", color = TextHi, fontSize = 18.sp,
                                           fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                       Text(cur?.artist ?: "—", color = TextLo, fontSize = 12.sp, maxLines = 1)
                                       Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                           Badge(if (s.power) "EQ روشن" else "EQ خاموش", if (s.power) p.b else TextLo)
-                                          Badge("+${Sound.gain(s).toInt()} dB", p.a)
-                                          if (s.spatialEnabled) Badge("سه‌بعدی", Info)
+                                          if (s.surround3d) Badge("3D Surround", Info)
+                                          if (s.speaker3d) Badge("3D Speaker", p.b)
                                           if (s.drivingMode) Badge("رانندگی", Warning)
                                       }
                                   }
@@ -1215,20 +1166,6 @@ jobs:
                                               Icon(Icons.Rounded.SkipNext, null, tint = TextHi, modifier = Modifier.size(if (s.drivingMode) 36.dp else 30.dp))
                                           }
                                           IconButton(onClick = {
-                                              val shareText = cur?.let { song ->
-                                                  "در حال گوش دادن به: ${song.title}" +
-                                                      if (song.artist.isNotBlank()) " — ${song.artist}" else ""
-                                              } ?: "موسیقی"
-                                              val send = Intent(Intent.ACTION_SEND).apply {
-                                                  type = "text/plain"
-                                                  putExtra(Intent.EXTRA_TEXT, shareText)
-                                              }
-                                              try { ctx.startActivity(Intent.createChooser(send, "اشتراک آهنگ")) }
-                                              catch (_: Throwable) { }
-                                          }) {
-                                              Icon(Icons.Rounded.Share, "اشتراک آهنگ", tint = p.b, modifier = Modifier.size(21.dp))
-                                          }
-                                          IconButton(onClick = {
                                               player?.let { it.repeatMode = when (repeat) {
                                                   Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
                                                   Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
@@ -1241,32 +1178,40 @@ jobs:
                                       }
                                   }
                               }
-                              1 -> Studio(p, s, info,
-                                  onReset = {
-                                      undo = s; undoMsg = "تنظیمات بازنشانی شد"
-                                      Sound.set { SoundState(palette = it.palette, motion = it.motion,
-                                          spectrum = it.spectrum, muted = it.muted) }
-                                  },
-                                  onRandom = {
-                                      undo = s; undoMsg = "تنظیم تصادفی اعمال شد"
-                                      val r = Random(System.currentTimeMillis())
-                                      Sound.set { it.copy(power = true, ampDb = r.nextInt(0, 4).toFloat(),
-                                          bass = r.nextInt(-45, 35).toFloat(), treble = r.nextInt(-20, 45).toFloat(),
-                                          bands = List(8) { r.nextInt(-30, 25).toFloat() }) }
-                                  },
-                                  onExport = {
-                                      val txt = buildString {
-                                          appendLine("تنظیمات صدا — موزیک")
-                                          appendLine("آمپلی‌فایر: +${Sound.gain(s).toInt()} dB")
-                                          appendLine("بیس: ${s.bass.toInt()}")
-                                          appendLine("زیر: ${s.treble.toInt()}")
-                                          appendLine("صدای سه‌بعدی: ${if (s.spatialEnabled) "روشن" else "خاموش"}")
-                                          appendLine("حالت رانندگی: ${if (s.drivingMode) "روشن" else "خاموش"}")
-                                          info.freqs.forEachIndexed { i, f -> appendLine("باند $f Hz: ${s.bands.getOrElse(i) { 0f }.toInt()}") }
+                              1 -> Studio(p, s, info)
+                              3 -> Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 24.dp),
+                                  horizontalAlignment = Alignment.CenterHorizontally,
+                                  verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                                  Box(Modifier.size(112.dp).clip(CircleShape)
+                                      .background(Brush.linearGradient(listOf(p.a, p.b))),
+                                      contentAlignment = Alignment.Center) {
+                                      Icon(Icons.Rounded.DirectionsCar, null, tint = Color.White, modifier = Modifier.size(58.dp))
+                                  }
+                                  Text("حالت رانندگی", color = TextHi, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                  Text("کنترل‌های ساده‌تر و افکت سه‌بعدی ملایم‌تر برای گوش‌دادن در خودرو",
+                                      color = TextLo, fontSize = 12.sp)
+                                  Toggle("حالت رانندگی ${if (s.drivingMode) "روشن" else "خاموش"}",
+                                      s.drivingMode, Warning) {
+                                      Sound.set { it.copy(drivingMode = !it.drivingMode) }
+                                  }
+                                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                      Button(onClick = { player?.let { if (it.isPlaying) it.pause() else it.play() } },
+                                          modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = p.a)) {
+                                          Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null)
+                                          Spacer(Modifier.width(5.dp)); Text(if (playing) "مکث" else "پخش")
                                       }
-                                      val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txt) }
-                                      try { ctx.startActivity(Intent.createChooser(send, "خروجی تنظیمات")) } catch (_: Throwable) { }
-                                  })
+                                      Button(onClick = { player?.seekToPrevious() }, modifier = Modifier.weight(1f),
+                                          colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
+                                          Icon(Icons.Rounded.SkipPrevious, null); Text("قبلی")
+                                      }
+                                      Button(onClick = { player?.seekToNext() }, modifier = Modifier.weight(1f),
+                                          colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
+                                          Icon(Icons.Rounded.SkipNext, null); Text("بعدی")
+                                      }
+                                  }
+                                  Text(cur?.title ?: "آهنگی در حال پخش نیست", color = TextHi, fontSize = 14.sp,
+                                      maxLines = 1, overflow = TextOverflow.Ellipsis)
+                              }
                               else -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
                                   Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                       Text("کتابخانه", color = TextHi, fontSize = 16.sp, fontWeight = FontWeight.Bold,
@@ -1339,8 +1284,9 @@ jobs:
                           horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                           val navItems = listOf(
                               Triple("پخش", Icons.Rounded.MusicNote, 0),
-                              Triple("اکولایزر", Icons.Rounded.VolumeUp, 1),
-                              Triple("آهنگ‌ها", Icons.Rounded.Search, 2)
+                              Triple("صدا", Icons.Rounded.SurroundSound, 1),
+                              Triple("آهنگ‌ها", Icons.Rounded.Search, 2),
+                              Triple("رانندگی", Icons.Rounded.DirectionsCar, 3)
                           )
                           navItems.forEach { (label, navIcon, index) ->
                               val selected = page == index
