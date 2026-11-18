@@ -169,6 +169,18 @@ jobs:
               val speaker3d: Boolean = false,
               val intensity: Float = 55f,
               val drivingMode: Boolean = false,
+              val crystalClear: Boolean = false,
+              val crystalAmount: Float = 40f,
+              val stereoWidthEnabled: Boolean = false,
+              val stereoWidth: Float = 45f,
+              val ultraTreble: Boolean = false,
+              val trebleAmount: Float = 30f,
+              val dynamicClarity: Boolean = false,
+              val dynamicAmount: Float = 40f,
+              val vocalEnhancer: Boolean = false,
+              val vocalAmount: Float = 35f,
+              val smartClarity: Boolean = false,
+              val smartAmount: Float = 45f,
               val safe: Boolean = true,
               val motion: Boolean = true,
               val spectrum: Boolean = true,
@@ -311,6 +323,15 @@ jobs:
           class StereoSpatialAudioProcessor(
               private val stateProvider: () -> SoundState
           ) : BaseAudioProcessor() {
+              private var lowL = 0f
+              private var lowR = 0f
+              private var trebleLowL = 0f
+              private var trebleLowR = 0f
+              private var vocalLowL = 0f
+              private var vocalLowR = 0f
+              private var vocalHighL = 0f
+              private var vocalHighR = 0f
+              private var envelope = 0f
 
               override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
                   val supportedEncoding = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_16BIT ||
@@ -331,7 +352,14 @@ jobs:
                       if (state.drivingMode) 0.72f else 1f
                   val surroundWidth = if (state.surround3d) 0.78f * level else 0f
                   val speakerWidth = if (state.speaker3d) 0.48f * level else 0f
-                  val width = 1f + surroundWidth + speakerWidth
+                  val clarityWidth = if (state.stereoWidthEnabled) 0.65f * state.stereoWidth.coerceIn(0f, 100f) / 100f else 0f
+                  val width = 1f + surroundWidth + speakerWidth + clarityWidth
+                  val active = state.power
+                  val crystal = if (active && state.crystalClear) state.crystalAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val ultra = if (active && state.ultraTreble) state.trebleAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val vocal = if (active && state.vocalEnhancer) state.vocalAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val dynamic = if (active && state.dynamicClarity) state.dynamicAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val smart = if (active && state.smartClarity) state.smartAmount.coerceIn(0f, 100f) / 100f else 0f
                   val floatPcm = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_FLOAT
 
                   while (inputBuffer.remaining() >= if (floatPcm) 8 else 4) {
@@ -345,13 +373,40 @@ jobs:
                           right = inputBuffer.short / 32768f
                       }
 
-                      var outLeft = left
-                      var outRight = right
-                      if (state.power && (state.surround3d || state.speaker3d) && level > 0f) {
-                          val mid = (left + right) * 0.5f
-                          val side = (left - right) * 0.5f * width
+                      lowL += 0.18f * (left - lowL)
+                      lowR += 0.18f * (right - lowR)
+                      trebleLowL += 0.42f * (left - trebleLowL)
+                      trebleLowR += 0.42f * (right - trebleLowR)
+                      vocalLowL += 0.035f * (left - vocalLowL)
+                      vocalLowR += 0.035f * (right - vocalLowR)
+                      vocalHighL += 0.34f * (left - vocalHighL)
+                      vocalHighR += 0.34f * (right - vocalHighR)
+                      val peak = maxOf(kotlin.math.abs(left), kotlin.math.abs(right))
+                      envelope += 0.025f * (peak - envelope)
+                      val smartBoost = smart * (1f - (envelope / 0.55f).coerceIn(0f, 1f)) * 0.12f
+                      val clarityGain = crystal * 0.16f + smartBoost
+                      val trebleGain = ultra * 0.22f
+                      val vocalGain = vocal * 0.24f
+                      var outLeft = left + (left - lowL) * clarityGain +
+                          (left - trebleLowL) * trebleGain +
+                          (vocalHighL - vocalLowL) * vocalGain
+                      var outRight = right + (right - lowR) * clarityGain +
+                          (right - trebleLowR) * trebleGain +
+                          (vocalHighR - vocalLowR) * vocalGain
+                      if (state.power && (state.surround3d || state.speaker3d || state.stereoWidthEnabled) && level > 0f) {
+                          val mid = (outLeft + outRight) * 0.5f
+                          val side = (outLeft - outRight) * 0.5f * width
                           outLeft = mid + side
                           outRight = mid - side
+                      }
+                      if (dynamic > 0f) {
+                          val outPeak = maxOf(kotlin.math.abs(outLeft), kotlin.math.abs(outRight))
+                          val threshold = 0.82f - dynamic * 0.18f
+                          if (outPeak > threshold) {
+                              val reduction = (threshold + (outPeak - threshold) * (1f - dynamic * 0.55f)) / outPeak
+                              outLeft *= reduction
+                              outRight *= reduction
+                          }
                       }
 
                       if (floatPcm) {
@@ -739,6 +794,7 @@ jobs:
           import androidx.compose.foundation.layout.size
           import androidx.compose.foundation.layout.width
           import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
           import androidx.compose.foundation.shape.CircleShape
           import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material.icons.Icons
@@ -859,6 +915,113 @@ jobs:
                   Icon(icon, null, tint = color, modifier = Modifier.size(13.dp))
                   Spacer(Modifier.width(5.dp))
                   Text(label, color = TextHi, fontSize = 10.sp)
+              }
+          }
+
+          @Composable
+          fun CrystalAudioPage(p: Pal, s: SoundState) {
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                      .padding(horizontal = 14.dp, vertical = 10.dp),
+                  verticalArrangement = Arrangement.spacedBy(12.dp)
+              ) {
+                  Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                      Text("Crystal Audio", color = TextHi, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                      Text("شش ابزار برای وضوح، جزئیات و فضای استریو؛ تغییرات هنگام پخش اعمال می‌شوند.",
+                          color = TextLo, fontSize = 11.sp)
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                      Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("Crystal Clear", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                  Text("شفافیت ملایم در محدوده میانی و بالا", color = TextLo, fontSize = 10.sp)
+                              }
+                              Toggle("فعال", s.crystalClear, p.b) { Sound.set { it.copy(crystalClear = !it.crystalClear) } }
+                          }
+                          Knob("میزان شفافیت", s.crystalAmount, 0f..100f, "${s.crystalAmount.toInt()}%", p.b, s.crystalClear) {
+                              Sound.set { it.copy(crystalAmount = it) }
+                          }
+                      }
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                      Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("Stereo Width", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                  Text("گسترش کنترل‌شده فضای چپ و راست", color = TextLo, fontSize = 10.sp)
+                              }
+                              Toggle("فعال", s.stereoWidthEnabled, Info) { Sound.set { it.copy(stereoWidthEnabled = !it.stereoWidthEnabled) } }
+                          }
+                          Knob("پهنای استریو", s.stereoWidth, 0f..100f, "${s.stereoWidth.toInt()}%", Info, s.stereoWidthEnabled) {
+                              Sound.set { it.copy(stereoWidth = it) }
+                          }
+                      }
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                      Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("Ultra Treble", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                  Text("برجسته‌کردن جزئیات فرکانس‌های بالا", color = TextLo, fontSize = 10.sp)
+                              }
+                              Toggle("فعال", s.ultraTreble, p.c) { Sound.set { it.copy(ultraTreble = !it.ultraTreble) } }
+                          }
+                          Knob("جزئیات بالا", s.trebleAmount, 0f..100f, "${s.trebleAmount.toInt()}%", p.c, s.ultraTreble) {
+                              Sound.set { it.copy(trebleAmount = it) }
+                          }
+                      }
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                      Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("Dynamic Clarity", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                  Text("کنترل قله‌های صدا برای حفظ وضوح و جلوگیری از تیزی", color = TextLo, fontSize = 10.sp)
+                              }
+                              Toggle("فعال", s.dynamicClarity, Warning) { Sound.set { it.copy(dynamicClarity = !it.dynamicClarity) } }
+                          }
+                          Knob("کنترل داینامیک", s.dynamicAmount, 0f..100f, "${s.dynamicAmount.toInt()}%", Warning, s.dynamicClarity) {
+                              Sound.set { it.copy(dynamicAmount = it) }
+                          }
+                      }
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                      Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("Vocal Enhancer", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                  Text("برجسته‌سازی بخش میانی برای وضوح صدای خواننده", color = TextLo, fontSize = 10.sp)
+                              }
+                              Toggle("فعال", s.vocalEnhancer, Info) { Sound.set { it.copy(vocalEnhancer = !it.vocalEnhancer) } }
+                          }
+                          Knob("وضوح وکال", s.vocalAmount, 0f..100f, "${s.vocalAmount.toInt()}%", Info, s.vocalEnhancer) {
+                              Sound.set { it.copy(vocalAmount = it) }
+                          }
+                      }
+                  }
+                  Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                      Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("Smart Clarity", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                  Text("تقویت تطبیقی جزئیات بر اساس سطح لحظه‌ای صدا", color = TextLo, fontSize = 10.sp)
+                              }
+                              Toggle("هوشمند", s.smartClarity, Success) { Sound.set { it.copy(smartClarity = !it.smartClarity) } }
+                          }
+                          Knob("شدت هوشمند", s.smartAmount, 0f..100f, "${s.smartAmount.toInt()}%", Success, s.smartClarity) {
+                              Sound.set { it.copy(smartAmount = it) }
+                          }
+                      }
+                  }
+                  Text("پیشنهاد: ابتدا هر افکت را جداگانه با شدت کم امتحان کن. افزایش زیاد فرکانس‌های بالا ممکن است صدای خسته‌کننده ایجاد کند.",
+                      color = TextLo, fontSize = 10.sp)
               }
           }
 
@@ -1247,6 +1410,7 @@ jobs:
                                   }
                               }
                               1 -> Studio(p, s, info)
+                              4 -> CrystalAudioPage(p, s)
                               3 -> Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 24.dp),
                                   horizontalAlignment = Alignment.CenterHorizontally,
                                   verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -1354,7 +1518,8 @@ jobs:
                               Triple("پخش", Icons.Rounded.MusicNote, 0),
                               Triple("صدا", Icons.Rounded.MusicNote, 1),
                               Triple("آهنگ‌ها", Icons.Rounded.Search, 2),
-                              Triple("رانندگی", Icons.Rounded.DirectionsCar, 3)
+                              Triple("رانندگی", Icons.Rounded.DirectionsCar, 3),
+                              Triple("Crystal", Icons.Rounded.MusicNote, 4)
                           )
                           navItems.forEach { (label, navIcon, index) ->
                               val selected = page == index
