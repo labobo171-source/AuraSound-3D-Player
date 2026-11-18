@@ -826,7 +826,7 @@ jobs:
                   }
               }
           }
-                    EOF
+          EOF
           cat > app/src/main/java/ir/player/music/MainActivity.kt <<'EOF'
           package ir.player.music
 
