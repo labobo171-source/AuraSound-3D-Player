@@ -317,104 +317,115 @@ jobs:
           import androidx.media3.common.audio.BaseAudioProcessor
           import androidx.media3.common.util.UnstableApi
           import java.nio.ByteBuffer
+          import kotlin.math.abs
           import kotlin.math.roundToInt
 
           @OptIn(UnstableApi::class)
           class StereoSpatialAudioProcessor(
               private val stateProvider: () -> SoundState
           ) : BaseAudioProcessor() {
-              private var lowL = 0f
-              private var lowR = 0f
-              private var trebleLowL = 0f
-              private var trebleLowR = 0f
-              private var vocalLowL = 0f
-              private var vocalLowR = 0f
-              private var vocalHighL = 0f
-              private var vocalHighR = 0f
+              private var channels = 2
+              private var lowPass = FloatArray(2)
+              private var trebleLow = FloatArray(2)
+              private var vocalLow = FloatArray(2)
+              private var vocalHigh = FloatArray(2)
               private var envelope = 0f
 
               override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
                   val supportedEncoding = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_16BIT ||
                       inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_FLOAT
-                  return if (inputAudioFormat.channelCount == 2 && supportedEncoding) {
-                      inputAudioFormat
-                  } else {
-                      AudioProcessor.AudioFormat.NOT_SET
+                  if (!supportedEncoding || inputAudioFormat.channelCount !in 1..8) {
+                      return AudioProcessor.AudioFormat.NOT_SET
                   }
+                  channels = inputAudioFormat.channelCount
+                  lowPass = FloatArray(channels)
+                  trebleLow = FloatArray(channels)
+                  vocalLow = FloatArray(channels)
+                  vocalHigh = FloatArray(channels)
+                  return inputAudioFormat
+              }
+
+              override fun onFlush() {
+                  lowPass.fill(0f)
+                  trebleLow.fill(0f)
+                  vocalLow.fill(0f)
+                  vocalHigh.fill(0f)
+                  envelope = 0f
               }
 
               override fun queueInput(inputBuffer: ByteBuffer) {
+                  val floatPcm = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_FLOAT
+                  val bytesPerSample = if (floatPcm) 4 else 2
+                  val frameBytes = channels * bytesPerSample
                   val bytes = inputBuffer.remaining()
-                  if (bytes == 0) return
+                  if (bytes < frameBytes) return
+
                   val output = replaceOutputBuffer(bytes)
                   val state = stateProvider()
                   val level = (state.intensity.coerceIn(0f, 100f) / 100f) *
                       if (state.drivingMode) 0.72f else 1f
-                  val surroundWidth = if (state.surround3d) 0.78f * level else 0f
-                  val speakerWidth = if (state.speaker3d) 0.48f * level else 0f
-                  val clarityWidth = if (state.stereoWidthEnabled) 0.65f * state.stereoWidth.coerceIn(0f, 100f) / 100f else 0f
-                  val width = 1f + surroundWidth + speakerWidth + clarityWidth
-                  val active = state.power
-                  val crystal = if (active && state.crystalClear) state.crystalAmount.coerceIn(0f, 100f) / 100f else 0f
-                  val ultra = if (active && state.ultraTreble) state.trebleAmount.coerceIn(0f, 100f) / 100f else 0f
-                  val vocal = if (active && state.vocalEnhancer) state.vocalAmount.coerceIn(0f, 100f) / 100f else 0f
-                  val dynamic = if (active && state.dynamicClarity) state.dynamicAmount.coerceIn(0f, 100f) / 100f else 0f
-                  val smart = if (active && state.smartClarity) state.smartAmount.coerceIn(0f, 100f) / 100f else 0f
-                  val floatPcm = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_FLOAT
+                  val surroundWidth = if (state.power && state.surround3d) 0.78f * level else 0f
+                  val speakerWidth = if (state.power && state.speaker3d) 0.48f * level else 0f
+                  val crystalWidth = if (state.stereoWidthEnabled) {
+                      0.65f * state.stereoWidth.coerceIn(0f, 100f) / 100f
+                  } else 0f
+                  val width = 1f + surroundWidth + speakerWidth + crystalWidth
 
-                  while (inputBuffer.remaining() >= if (floatPcm) 8 else 4) {
-                      val left: Float
-                      val right: Float
-                      if (floatPcm) {
-                          left = inputBuffer.float
-                          right = inputBuffer.float
-                      } else {
-                          left = inputBuffer.short / 32768f
-                          right = inputBuffer.short / 32768f
+                  // Crystal controls deliberately do not depend on the master EQ power switch.
+                  val crystal = if (state.crystalClear) state.crystalAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val ultra = if (state.ultraTreble) state.trebleAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val vocal = if (state.vocalEnhancer) state.vocalAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val dynamic = if (state.dynamicClarity) state.dynamicAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val smart = if (state.smartClarity) state.smartAmount.coerceIn(0f, 100f) / 100f else 0f
+                  val samples = FloatArray(channels)
+                  val processed = FloatArray(channels)
+
+                  while (inputBuffer.remaining() >= frameBytes) {
+                      var peak = 0f
+                      for (c in 0 until channels) {
+                          val sample = if (floatPcm) inputBuffer.float else inputBuffer.short / 32768f
+                          samples[c] = sample
+                          peak = maxOf(peak, abs(sample))
                       }
-
-                      lowL += 0.18f * (left - lowL)
-                      lowR += 0.18f * (right - lowR)
-                      trebleLowL += 0.42f * (left - trebleLowL)
-                      trebleLowR += 0.42f * (right - trebleLowR)
-                      vocalLowL += 0.035f * (left - vocalLowL)
-                      vocalLowR += 0.035f * (right - vocalLowR)
-                      vocalHighL += 0.34f * (left - vocalHighL)
-                      vocalHighR += 0.34f * (right - vocalHighR)
-                      val peak = maxOf(kotlin.math.abs(left), kotlin.math.abs(right))
                       envelope += 0.025f * (peak - envelope)
-                      val smartBoost = smart * (1f - (envelope / 0.55f).coerceIn(0f, 1f)) * 0.12f
-                      val clarityGain = crystal * 0.16f + smartBoost
-                      val trebleGain = ultra * 0.22f
-                      val vocalGain = vocal * 0.24f
-                      var outLeft = left + (left - lowL) * clarityGain +
-                          (left - trebleLowL) * trebleGain +
-                          (vocalHighL - vocalLowL) * vocalGain
-                      var outRight = right + (right - lowR) * clarityGain +
-                          (right - trebleLowR) * trebleGain +
-                          (vocalHighR - vocalLowR) * vocalGain
-                      if (state.power && (state.surround3d || state.speaker3d || state.stereoWidthEnabled) && level > 0f) {
-                          val mid = (outLeft + outRight) * 0.5f
-                          val side = (outLeft - outRight) * 0.5f * width
-                          outLeft = mid + side
-                          outRight = mid - side
+                      val smartBoost = smart * (1f - (envelope / 0.55f).coerceIn(0f, 1f)) * 0.18f
+
+                      for (c in 0 until channels) {
+                          val x = samples[c]
+                          lowPass[c] += 0.18f * (x - lowPass[c])
+                          trebleLow[c] += 0.42f * (x - trebleLow[c])
+                          vocalLow[c] += 0.035f * (x - vocalLow[c])
+                          vocalHigh[c] += 0.34f * (x - vocalHigh[c])
+                          processed[c] = x +
+                              (x - lowPass[c]) * (crystal * 0.22f + smartBoost) +
+                              (x - trebleLow[c]) * (ultra * 0.30f) +
+                              (vocalHigh[c] - vocalLow[c]) * (vocal * 0.28f)
                       }
+
+                      if (channels >= 2 && (crystalWidth > 0f || surroundWidth > 0f || speakerWidth > 0f)) {
+                          val mid = (processed[0] + processed[1]) * 0.5f
+                          val side = (processed[0] - processed[1]) * 0.5f * width
+                          processed[0] = mid + side
+                          processed[1] = mid - side
+                      }
+
                       if (dynamic > 0f) {
-                          val outPeak = maxOf(kotlin.math.abs(outLeft), kotlin.math.abs(outRight))
-                          val threshold = 0.82f - dynamic * 0.18f
+                          var outPeak = 0f
+                          for (c in 0 until channels) outPeak = maxOf(outPeak, abs(processed[c]))
+                          val threshold = 0.84f - dynamic * 0.20f
                           if (outPeak > threshold) {
-                              val reduction = (threshold + (outPeak - threshold) * (1f - dynamic * 0.55f)) / outPeak
-                              outLeft *= reduction
-                              outRight *= reduction
+                              val reduction = (threshold + (outPeak - threshold) * (1f - dynamic * 0.60f)) / outPeak
+                              for (c in 0 until channels) processed[c] *= reduction
                           }
                       }
 
-                      if (floatPcm) {
-                          output.putFloat(outLeft.coerceIn(-1f, 1f))
-                          output.putFloat(outRight.coerceIn(-1f, 1f))
-                      } else {
-                          output.putShort((outLeft.coerceIn(-1f, 1f) * 32767f).roundToInt().toShort())
-                          output.putShort((outRight.coerceIn(-1f, 1f) * 32767f).roundToInt().toShort())
+                      for (c in 0 until channels) {
+                          val sample = processed[c].coerceIn(-1f, 1f)
+                          if (floatPcm) {
+                              output.putFloat(sample)
+                          } else {
+                              output.putShort((sample * 32767f).roundToInt().toShort())
+                          }
                       }
                   }
                   while (inputBuffer.hasRemaining()) output.put(inputBuffer.get())
