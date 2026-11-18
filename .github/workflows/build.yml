@@ -590,7 +590,10 @@ jobs:
           import androidx.compose.ui.geometry.Size
           import androidx.compose.ui.graphics.Brush
           import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.Path
           import androidx.compose.ui.graphics.drawscope.DrawScope
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.graphics.drawscope.rotate
           import androidx.compose.ui.graphics.graphicsLayer
           import androidx.compose.ui.unit.Dp
           import androidx.compose.ui.unit.dp
@@ -669,6 +672,103 @@ jobs:
                           center = Offset(w / 2f, h / 2f), radius = maxOf(w, h) * 0.78f
                       )
                   )
+              }
+          }
+          
+          
+          @Composable
+          fun SeasonalAtmosphere(season: Int, motion: Boolean, modifier: Modifier = Modifier) {
+              val transition = rememberInfiniteTransition(label = "seasonal-atmosphere")
+              val phase by transition.animateFloat(
+                  0f, 1f,
+                  infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Restart),
+                  label = "seasonal-phase"
+              )
+              val particles = remember(season) {
+                  val random = Random(2026 + season)
+                  List(58) {
+                      floatArrayOf(random.nextFloat(), random.nextFloat(), 0.45f + random.nextFloat() * 1.4f,
+                          random.nextFloat() * 2f * PI.toFloat())
+                  }
+              }
+              if (!motion) return
+              Canvas(modifier) {
+                  val w = size.width
+                  val h = size.height
+                  val t = phase
+                  when (season.coerceIn(0, 3)) {
+                      0 -> { // Spring: blossoms opening and a few drifting petals
+                          particles.take(18).forEachIndexed { i, item ->
+                              val x = item[0] * w
+                              val y = item[1] * h * 0.88f
+                              val bloom = (0.35f + 0.65f * (0.5f + 0.5f * sin(t * 2f * PI.toFloat() + item[3]))).coerceIn(0.15f, 1f)
+                              val radius = (2.0f + item[2] * 1.15f) * bloom
+                              for (petal in 0 until 5) {
+                                  val angle = petal * (2f * PI.toFloat() / 5f) + item[3]
+                                  drawCircle(Color(0xFFFFB7D5).copy(alpha = 0.42f * bloom),
+                                      radius = radius, center = Offset(x + cos(angle) * radius * 1.1f, y + sin(angle) * radius * 1.1f))
+                              }
+                              drawCircle(Color(0xFFFFE08A).copy(alpha = 0.65f * bloom), radius = radius * 0.48f, center = Offset(x, y))
+                          }
+                          particles.drop(18).take(14).forEach { item ->
+                              val x = ((item[0] + sin(t * 2f * PI.toFloat() + item[3]) * 0.035f + 1f) % 1f) * w
+                              val y = ((item[1] + t * 0.22f) % 1f) * h
+                              drawCircle(Color(0xFFFFC5DC).copy(alpha = 0.42f), radius = item[2] * 1.3f, center = Offset(x, y))
+                          }
+                      }
+                      1 -> { // Summer: gentle flowing wind ribbons
+                          for (i in 0 until 9) {
+                              val baseY = h * (0.12f + i * 0.095f)
+                              val path = Path()
+                              val offset = t * 2f * PI.toFloat() + i * 0.72f
+                              path.moveTo(-w * 0.08f, baseY)
+                              for (step in 0..32) {
+                                  val x = w * step / 32f
+                                  val y = baseY + sin(x / w * 2.4f * PI.toFloat() + offset) * (7f + i % 3 * 3f)
+                                  path.lineTo(x, y)
+                              }
+                              drawPath(path, Color(0xFFB7F3E5).copy(alpha = 0.13f + (i % 3) * 0.025f),
+                                  style = Stroke(width = 1.5f + i % 2))
+                          }
+                          particles.take(22).forEach { item ->
+                              val x = ((item[0] + t * (0.28f + item[2] * 0.08f)) % 1f) * w
+                              val y = item[1] * h + sin(t * 2f * PI.toFloat() + item[3]) * 9f
+                              drawCircle(Color(0xFFFFE9A8).copy(alpha = 0.30f), radius = item[2], center = Offset(x, y))
+                          }
+                      }
+                      2 -> { // Autumn: falling, gently rotating leaves
+                          particles.take(38).forEachIndexed { i, item ->
+                              val fall = (item[1] + t * (0.42f + item[2] * 0.06f)) % 1.08f
+                              val x = (item[0] * w + sin(fall * 7f + item[3]) * w * 0.055f +
+                                  cos(t * 2f * PI.toFloat() + item[3]) * 12f).let { (it + w) % w }
+                              val y = fall * h
+                              val color = when (i % 4) {
+                                  0 -> Color(0xFFE7A23B)
+                                  1 -> Color(0xFFB94E24)
+                                  2 -> Color(0xFFD97706)
+                                  else -> Color(0xFF9F3D28)
+                              }
+                              rotate(degrees = sin(t * 2f * PI.toFloat() + item[3]) * 48f + item[3] * 35f,
+                                  pivot = Offset(x, y)) {
+                                  drawOval(color.copy(alpha = 0.62f), topLeft = Offset(x - item[2] * 2.2f, y - item[2] * 1.15f),
+                                      size = Size(item[2] * 4.4f, item[2] * 2.3f))
+                                  drawLine(Color(0xFFFFD18A).copy(alpha = 0.48f), Offset(x - item[2] * 1.5f, y),
+                                      Offset(x + item[2] * 1.5f, y), strokeWidth = 0.8f)
+                              }
+                          }
+                      }
+                      else -> { // Winter: softly falling snow
+                          particles.forEachIndexed { i, item ->
+                              val fall = (item[1] + t * (0.48f + item[2] * 0.10f)) % 1.04f
+                              val x = (item[0] * w + sin(t * 2f * PI.toFloat() * 1.4f + item[3]) * (8f + item[2] * 5f) +
+                                  cos(fall * 5f + item[3]) * 5f).let { (it + w) % w }
+                              val y = fall * h
+                              val r = 1.0f + item[2] * 1.25f
+                              drawCircle(Color.White.copy(alpha = if (i % 5 == 0) 0.72f else 0.48f),
+                                  radius = r, center = Offset(x, y))
+                          }
+                      }
+                  }
               }
           }
           
@@ -1409,6 +1509,7 @@ jobs:
           
               Box(Modifier.fillMaxSize()) {
                   Aurora(p, s.motion, Modifier.fillMaxSize())
+                  SeasonalAtmosphere(s.palette, s.motion, Modifier.fillMaxSize())
                   if (!granted) {
                       Column(Modifier.align(Alignment.Center).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                           Disc(p, false, false, 150.dp)
