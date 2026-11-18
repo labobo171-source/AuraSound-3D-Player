@@ -631,9 +631,11 @@ jobs:
           cat > app/src/main/java/ir/player/music/Studio.kt <<'EOF'
           package ir.player.music
 
+          import androidx.compose.foundation.Canvas
           import androidx.compose.foundation.background
           import androidx.compose.foundation.border
           import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.gestures.detectDragGestures
           import androidx.compose.foundation.horizontalScroll
           import androidx.compose.foundation.layout.Arrangement
           import androidx.compose.foundation.layout.Box
@@ -641,7 +643,6 @@ jobs:
           import androidx.compose.foundation.layout.Row
           import androidx.compose.foundation.layout.Spacer
           import androidx.compose.foundation.layout.fillMaxWidth
-          import androidx.compose.foundation.layout.height
           import androidx.compose.foundation.layout.padding
           import androidx.compose.foundation.layout.size
           import androidx.compose.foundation.layout.width
@@ -650,261 +651,211 @@ jobs:
           import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.rounded.Casino
-          import androidx.compose.material.icons.rounded.Check
           import androidx.compose.material.icons.rounded.GraphicEq
           import androidx.compose.material.icons.rounded.Refresh
           import androidx.compose.material.icons.rounded.Share
           import androidx.compose.material3.Card
           import androidx.compose.material3.CardDefaults
           import androidx.compose.material3.Icon
-          import androidx.compose.material3.Slider
-          import androidx.compose.material3.SliderDefaults
           import androidx.compose.material3.Switch
           import androidx.compose.material3.SwitchDefaults
           import androidx.compose.material3.Text
           import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.geometry.Offset
           import androidx.compose.ui.graphics.Brush
           import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.StrokeCap
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.input.pointer.pointerInput
           import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
+          import kotlin.math.PI
+          import kotlin.math.atan2
+          import kotlin.math.cos
+          import kotlin.math.sin
 
           @Composable
-          fun Knob(
-              label: String, value: Float, range: ClosedFloatingPointRange<Float>,
-              display: String, color: Color, enabled: Boolean = true,
-              onChange: (Float) -> Unit
-          ) {
-              Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                      Text(
-                          label, color = if (enabled) TextHi else TextLo, fontSize = 12.sp,
-                          modifier = Modifier.weight(1f)
+          fun Knob(label: String, value: Float, range: ClosedFloatingPointRange<Float>,
+              display: String, color: Color, enabled: Boolean = true, onChange: (Float) -> Unit) {
+              val span = (range.endInclusive - range.start).coerceAtLeast(0.001f)
+              val progress = ((value - range.start) / span).coerceIn(0f, 1f)
+              Column(Modifier.width(88.dp).padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                  Text(label, color = if (enabled) TextHi else TextLo, fontSize = 10.sp,
+                      maxLines = 1, fontWeight = FontWeight.Medium)
+                  Canvas(Modifier.padding(top = 3.dp).size(66.dp).pointerInput(enabled, range, value) {
+                      if (!enabled) return@pointerInput
+                      var lastAngle = Float.NaN
+                      detectDragGestures(
+                          onDragStart = { p ->
+                              lastAngle = atan2(p.y - size.height / 2f, p.x - size.width / 2f)
+                          },
+                          onDragEnd = { lastAngle = Float.NaN },
+                          onDragCancel = { lastAngle = Float.NaN },
+                          onDrag = { change, _ ->
+                              change.consume()
+                              val angle = atan2(change.position.y - size.height / 2f,
+                                  change.position.x - size.width / 2f)
+                              if (!lastAngle.isNaN()) {
+                                  var delta = angle - lastAngle
+                                  if (delta > PI.toFloat()) delta -= 2f * PI.toFloat()
+                                  if (delta < -PI.toFloat()) delta += 2f * PI.toFloat()
+                                  onChange((value + delta / (1.5f * PI.toFloat()) * span)
+                                      .coerceIn(range.start, range.endInclusive))
+                              }
+                              lastAngle = angle
+                          }
                       )
-                      Box(
-                          Modifier.clip(RoundedCornerShape(8.dp))
-                              .background(color.copy(alpha = 0.16f))
-                              .padding(horizontal = 8.dp, vertical = 3.dp)
-                      ) {
-                          Text(display, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                      }
+                  }) {
+                      val center = Offset(size.width / 2f, size.height / 2f)
+                      val radius = size.width * 0.39f
+                      drawCircle(Color(0xFF171522), radius + size.width * 0.09f, center)
+                      drawCircle(Color(0xFF343044), radius, center,
+                          style = Stroke(size.width * 0.075f, cap = StrokeCap.Round))
+                      drawArc(color.copy(alpha = if (enabled) 0.95f else 0.35f),
+                          135f, 270f * progress, false,
+                          Offset(center.x - radius, center.y - radius),
+                          androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
+                          style = Stroke(size.width * 0.075f, cap = StrokeCap.Round))
+                      val a = (135f + 270f * progress) * PI.toFloat() / 180f
+                      drawLine(if (enabled) Color.White else TextLo,
+                          Offset(center.x + cos(a) * radius * 0.25f, center.y + sin(a) * radius * 0.25f),
+                          Offset(center.x + cos(a) * radius * 0.78f, center.y + sin(a) * radius * 0.78f),
+                          size.width * 0.07f, cap = StrokeCap.Round)
+                      drawCircle(color, size.width * 0.045f, center)
                   }
-                  Slider(
-                      value = value.coerceIn(range.start, range.endInclusive),
-                      onValueChange = onChange,
-                      valueRange = range,
-                      enabled = enabled,
-                      colors = SliderDefaults.colors(
-                          thumbColor = color,
-                          activeTrackColor = color,
-                          inactiveTrackColor = Hairline,
-                          disabledThumbColor = TextLo,
-                          disabledActiveTrackColor = TextLo,
-                          disabledInactiveTrackColor = Hairline,
-                          activeTickColor = Color.Transparent,
-                          inactiveTickColor = Color.Transparent
-                      )
-                  )
+                  Text(display, color = if (enabled) color else TextLo, fontSize = 10.sp, fontWeight = FontWeight.Bold)
               }
           }
 
           @Composable
           fun Chip(label: String, color: Color, onClick: () -> Unit) {
-              Box(
-                  Modifier.clip(RoundedCornerShape(50))
-                      .background(Overlay)
-                      .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(50))
-                      .clickable(onClick = onClick)
-                      .padding(horizontal = 14.dp, vertical = 8.dp)
-              ) { Text(label, color = TextHi, fontSize = 12.sp) }
-          }
-
-          @Composable
-          fun Toggle(label: String, on: Boolean, color: Color, onClick: () -> Unit) {
-              Row(
-                  Modifier.clip(RoundedCornerShape(12.dp))
-                      .background(if (on) color.copy(alpha = 0.16f) else Overlay)
-                      .border(1.dp, if (on) color.copy(alpha = 0.55f) else Hairline, RoundedCornerShape(12.dp))
-                      .clickable(onClick = onClick)
-                      .padding(horizontal = 10.dp, vertical = 8.dp),
-                  verticalAlignment = Alignment.CenterVertically
-              ) {
-                  Box(
-                      Modifier.size(7.dp).clip(CircleShape)
-                          .background(if (on) color else TextLo)
-                  )
-                  Spacer(Modifier.width(7.dp))
-                  Text(label, color = if (on) TextHi else TextLo, fontSize = 11.sp)
-              }
-          }
-
-          @Composable
-          fun Action(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, onClick: () -> Unit) {
-              Row(
-                  Modifier.clip(RoundedCornerShape(14.dp))
-                      .background(Overlay)
-                      .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
-                      .clickable(onClick = onClick)
-                      .padding(horizontal = 12.dp, vertical = 10.dp),
-                  verticalAlignment = Alignment.CenterVertically
-              ) {
-                  Icon(icon, null, tint = color, modifier = Modifier.size(15.dp))
-                  Spacer(Modifier.width(6.dp))
+              Box(Modifier.clip(RoundedCornerShape(50)).background(Overlay)
+                  .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(50))
+                  .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 7.dp)) {
                   Text(label, color = TextHi, fontSize = 11.sp)
               }
           }
 
           @Composable
-          fun Studio(
-              p: Pal, s: SoundState, info: EngineInfo,
-              onReset: () -> Unit, onRandom: () -> Unit, onExport: () -> Unit
-          ) {
-              Card(
-                  Modifier.fillMaxWidth(),
-                  shape = RoundedCornerShape(26.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))
-              ) {
-                  Column(Modifier.padding(16.dp)) {
+          fun Toggle(label: String, on: Boolean, color: Color, onClick: () -> Unit) {
+              Row(Modifier.clip(RoundedCornerShape(12.dp))
+                  .background(if (on) color.copy(alpha = 0.16f) else Overlay)
+                  .border(1.dp, if (on) color.copy(alpha = 0.55f) else Hairline, RoundedCornerShape(12.dp))
+                  .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 7.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                  Box(Modifier.size(6.dp).clip(CircleShape).background(if (on) color else TextLo))
+                  Spacer(Modifier.width(5.dp))
+                  Text(label, color = if (on) TextHi else TextLo, fontSize = 10.sp)
+              }
+          }
+
+          @Composable
+          fun Action(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, onClick: () -> Unit) {
+              Row(Modifier.clip(RoundedCornerShape(13.dp)).background(Overlay)
+                  .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(13.dp))
+                  .clickable(onClick = onClick).padding(horizontal = 9.dp, vertical = 7.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                  Icon(icon, null, tint = color, modifier = Modifier.size(13.dp))
+                  Spacer(Modifier.width(5.dp))
+                  Text(label, color = TextHi, fontSize = 10.sp)
+              }
+          }
+
+          @Composable
+          fun Studio(p: Pal, s: SoundState, info: EngineInfo,
+              onReset: () -> Unit, onRandom: () -> Unit, onExport: () -> Unit) {
+              var section by remember { mutableStateOf(0) }
+              Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
+                  shape = RoundedCornerShape(22.dp),
+                  colors = CardDefaults.cardColors(containerColor = Color(0x1AFFFFFF))) {
+                  Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Box(
-                              Modifier.size(30.dp).clip(RoundedCornerShape(10.dp))
-                                  .background(Brush.linearGradient(listOf(p.a, p.c))),
-                              contentAlignment = Alignment.Center
-                          ) { Icon(Icons.Rounded.GraphicEq, null, tint = Color.White, modifier = Modifier.size(17.dp)) }
-                          Spacer(Modifier.width(10.dp))
-                          Column(Modifier.weight(1f)) {
-                              Text("استودیو صدا", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                              Text("همه‌چیز زنده اعمال می‌شود", color = TextLo, fontSize = 10.sp)
+                          Icon(Icons.Rounded.GraphicEq, null, tint = p.b, modifier = Modifier.size(19.dp))
+                          Column(Modifier.weight(1f).padding(start = 7.dp)) {
+                              Text("استودیو صدا", color = TextHi, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                              Text("کنترل‌های چرخشی", color = TextLo, fontSize = 9.sp)
                           }
-                          Switch(
-                              checked = s.power,
-                              onCheckedChange = { v -> Sound.set { it.copy(power = v) } },
-                              colors = SwitchDefaults.colors(
-                                  checkedThumbColor = Color.White,
-                                  checkedTrackColor = p.a,
-                                  uncheckedThumbColor = TextLo,
-                                  uncheckedTrackColor = OverlayHi,
-                                  uncheckedBorderColor = Hairline
-                              )
-                          )
+                          Switch(checked = s.power, onCheckedChange = { v -> Sound.set { it.copy(power = v) } },
+                              colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = p.a,
+                                  uncheckedThumbColor = TextLo, uncheckedTrackColor = OverlayHi,
+                                  uncheckedBorderColor = Hairline))
                       }
-
-                      Spacer(Modifier.height(12.dp))
-                      Row(
-                          Modifier.horizontalScroll(rememberScrollState()),
-                          horizontalArrangement = Arrangement.spacedBy(6.dp)
-                      ) {
-                          PRESETS.forEach { pr ->
-                              Chip(pr.name, p.b) {
-                                  Sound.set {
-                                      it.copy(
-                                          power = true, ampDb = pr.amp, bass = pr.bass,
-                                          treble = pr.treble, spatial = pr.spatial,
-                                          bands = presetCurve(pr.curve)
-                                      )
-                                  }
+                      Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(13.dp))
+                          .background(Overlay).padding(3.dp)) {
+                          listOf("تنظیمات صدا", "باندهای EQ").forEachIndexed { i, label ->
+                              Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                  .background(if (section == i) p.a.copy(alpha = 0.28f) else Color.Transparent)
+                                  .clickable { section = i }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                                  Text(label, color = if (section == i) p.b else TextLo, fontSize = 11.sp,
+                                      fontWeight = if (section == i) FontWeight.Bold else FontWeight.Normal)
                               }
                           }
                       }
-
-                      Spacer(Modifier.height(10.dp))
-                      Knob(
-                          "آمپلی‌فایر", s.ampDb, 0f..15f,
-                          "+${Sound.gain(s).toInt()} dB", p.a, info.ampOk
-                      ) { v -> Sound.set { it.copy(ampDb = v) } }
-                      Knob(
-                          "بیس  ·  منفی = نرم‌تر", s.bass, -100f..100f,
-                          "${s.bass.toInt()}", p.b, info.eqOk
-                      ) { v -> Sound.set { it.copy(bass = v) } }
-                      Knob(
-                          "صدای زیر", s.treble, -100f..100f,
-                          "${s.treble.toInt()}", p.c, info.eqOk
-                      ) { v -> Sound.set { it.copy(treble = v) } }
-                      Knob(
-                          "فضاسازی", s.spatial, 0f..100f,
-                          "${s.spatial.toInt()}%", Info, info.spatialOk
-                      ) { v -> Sound.set { it.copy(spatial = v) } }
-                      Knob(
-                          "سرعت پخش", s.speed, 0.5f..1.5f,
-                          String.format("%.2fx", s.speed), Success
-                      ) { v -> Sound.set { it.copy(speed = (v * 20f).toInt() / 20f) } }
-
-                      Spacer(Modifier.height(6.dp))
-                      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                          Text("اکولایزر دستی", color = TextHi, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                          Text("±${info.rangeDb} dB", color = TextLo, fontSize = 10.sp)
-                      }
-                      info.freqs.forEachIndexed { i, f ->
-                          val label = if (f >= 1000) "${f / 1000}k Hz" else "$f Hz"
-                          val v = s.bands.getOrElse(i) { 0f }
-                          Knob(
-                              label, v, -100f..100f, "${v.toInt()}",
-                              listOf(p.a, p.b, p.c, Info, Success, Warning, Danger, p.a)[i % 8],
-                              info.eqOk
-                          ) { nv -> Sound.band(i, nv) }
-                      }
-
-                      Spacer(Modifier.height(8.dp))
-                      Row(
-                          Modifier.horizontalScroll(rememberScrollState()),
-                          horizontalArrangement = Arrangement.spacedBy(6.dp)
-                      ) {
-                          Toggle("محدودکنندهٔ ایمن", s.safe, Warning) { Sound.set { it.copy(safe = !it.safe) } }
-                          Toggle("حرکت", s.motion, p.b) { Sound.set { it.copy(motion = !it.motion) } }
-                          Toggle("طیف", s.spectrum, p.c) { Sound.set { it.copy(spectrum = !it.spectrum) } }
-                      }
-
-                      Spacer(Modifier.height(12.dp))
-                      Text("تم رنگ", color = TextHi, fontSize = 12.sp)
-                      Spacer(Modifier.height(8.dp))
-                      Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                          PALETTES.forEachIndexed { i, pal ->
-                              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                  Box(
-                                      Modifier.size(46.dp).clip(RoundedCornerShape(16.dp))
-                                          .background(Brush.sweepGradient(listOf(pal.a, pal.b, pal.c, pal.a)))
-                                          .border(
-                                              if (s.palette == i) 2.dp else 1.dp,
-                                              if (s.palette == i) Color.White else Hairline,
-                                              RoundedCornerShape(16.dp)
-                                          )
-                                          .clickable { Sound.set { it.copy(palette = i) } },
-                                      contentAlignment = Alignment.Center
-                                  ) {
-                                      if (s.palette == i) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                                  }
-                                  Spacer(Modifier.height(4.dp))
-                                  Text(pal.name, color = if (s.palette == i) TextHi else TextLo, fontSize = 10.sp)
+                      if (section == 0) {
+                          Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                              horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                              PRESETS.forEach { pr -> Chip(pr.name, p.b) {
+                                  Sound.set { it.copy(power = true, ampDb = pr.amp, bass = pr.bass,
+                                      treble = pr.treble, spatial = pr.spatial, bands = presetCurve(pr.curve)) }
+                              } }
+                          }
+                          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                              Knob("تقویت", s.ampDb, 0f..15f, "+${Sound.gain(s).toInt()} dB", p.a, info.ampOk) { v -> Sound.set { it.copy(ampDb = v) } }
+                              Knob("بیس", s.bass, -100f..100f, s.bass.toInt().toString(), p.b, info.eqOk) { v -> Sound.set { it.copy(bass = v) } }
+                              Knob("زیر", s.treble, -100f..100f, s.treble.toInt().toString(), p.c, info.eqOk) { v -> Sound.set { it.copy(treble = v) } }
+                          }
+                          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                              Knob("فضاسازی", s.spatial, 0f..100f, "${s.spatial.toInt()}%", Info, info.spatialOk) { v -> Sound.set { it.copy(spatial = v) } }
+                              Knob("سرعت", s.speed, 0.5f..1.5f, String.format("%.2fx", s.speed), Success) { v -> Sound.set { it.copy(speed = (v * 20f).toInt() / 20f) } }
+                          }
+                          Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                              horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                              Toggle("ایمنی", s.safe, Warning) { Sound.set { it.copy(safe = !it.safe) } }
+                              Toggle("حرکت", s.motion, p.b) { Sound.set { it.copy(motion = !it.motion) } }
+                              Toggle("طیف", s.spectrum, p.c) { Sound.set { it.copy(spectrum = !it.spectrum) } }
+                              PALETTES.forEachIndexed { i, pal ->
+                                  Box(Modifier.size(27.dp).clip(CircleShape)
+                                      .background(Brush.sweepGradient(listOf(pal.a, pal.b, pal.c, pal.a)))
+                                      .border(if (s.palette == i) 2.dp else 1.dp,
+                                          if (s.palette == i) Color.White else Hairline, CircleShape)
+                                      .clickable { Sound.set { it.copy(palette = i) } })
                               }
                           }
+                      } else {
+                          info.freqs.indices.take(8).toList().chunked(4).forEach { indices ->
+                              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                  indices.forEach { i ->
+                                      val f = info.freqs[i]
+                                      val label = if (f >= 1000) "${f / 1000}k" else "$f"
+                                      val v = s.bands.getOrElse(i) { 0f }
+                                      Knob(label, v, -100f..100f, v.toInt().toString(),
+                                          listOf(p.a, p.b, p.c, Info, Success, Warning, Danger, p.a)[i % 8],
+                                          info.eqOk) { nv -> Sound.band(i, nv) }
+                                  }
+                              }
+                          }
+                          Text("تنظیم باندها بر اساس فرکانس واقعی اکولایزر گوشی.", color = TextLo, fontSize = 9.sp)
                       }
-
-                      Spacer(Modifier.height(14.dp))
-                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                           Action("بازنشانی", Icons.Rounded.Refresh, Danger, onReset)
                           Action("تصادفی", Icons.Rounded.Casino, p.b, onRandom)
-                          Action("خروجی", Icons.Rounded.Share, Success, onExport)
+                          Action("اشتراک", Icons.Rounded.Share, Success, onExport)
+                          Spacer(Modifier.weight(1f))
+                          Text(if (info.eqOk) "${info.freqs.size} باند" else "EQ ناموجود", color = TextLo, fontSize = 9.sp)
                       }
-
-                      Spacer(Modifier.height(10.dp))
-                      if (s.safe && s.ampDb > 8f) {
-                          Text("محدودکننده فعال است: سقف تقویت ۸ دسی‌بل.", color = Warning, fontSize = 10.sp)
-                      } else if (s.ampDb > 8f) {
-                          Text("هشدار: بالای ۸ دسی‌بل ممکن است صدا خش‌دار شود.", color = Danger, fontSize = 10.sp)
-                      }
-                      Text(
-                          (if (info.eqOk) "اکولایزر ${info.freqs.size} باند" else "اکولایزر: در دسترس نیست") +
-                              "  ·  " + (if (info.ampOk) "آمپلی‌فایر آماده" else "آمپلی‌فایر: در دسترس نیست") +
-                              "  ·  " + (if (info.spatialOk) "فضاسازی آماده" else "فضاسازی: در دسترس نیست"),
-                          color = TextLo, fontSize = 10.sp
-                      )
-                      Text("طیف از روی منحنی اکولایزر ساخته می‌شود.", color = TextLo, fontSize = 10.sp)
+                      if (s.safe && s.ampDb > 8f) Text("محدودکننده ایمن: سقف تقویت ۸ dB", color = Warning, fontSize = 9.sp)
                   }
               }
           }
+          EOF
           EOF
           cat > app/src/main/java/ir/player/music/MainActivity.kt <<'EOF'
           package ir.player.music
@@ -1144,303 +1095,214 @@ jobs:
                   }
               }
               val cur = songs.getOrNull(index)
-              val listState = rememberLazyListState()
+
+              var page by remember { mutableStateOf(0) }
 
               Box(Modifier.fillMaxSize()) {
                   Aurora(p, s.motion, Modifier.fillMaxSize())
-
                   if (!granted) {
-                      Column(
-                          Modifier.align(Alignment.Center).padding(30.dp),
-                          horizontalAlignment = Alignment.CenterHorizontally
-                      ) {
+                      Column(Modifier.align(Alignment.Center).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                           Disc(p, false, false, 150.dp)
                           Spacer(Modifier.height(20.dp))
                           Text("دسترسی به موسیقی", color = TextHi, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                           Spacer(Modifier.height(8.dp))
                           Text("برای دیدن آهنگ‌های گوشی اجازه بده.", color = TextLo, fontSize = 13.sp)
                           Spacer(Modifier.height(20.dp))
-                          Button(
-                              onClick = { ask.launch(perms()) },
-                              colors = ButtonDefaults.buttonColors(containerColor = p.a)
-                          ) { Text("اجازه می‌دهم", color = Color.White) }
+                          Button(onClick = { ask.launch(perms()) }, colors = ButtonDefaults.buttonColors(containerColor = p.a)) {
+                              Text("اجازه می‌دهم", color = Color.White)
+                          }
                       }
                       return@Box
                   }
 
                   Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                      Row(
-                          Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                          verticalAlignment = Alignment.CenterVertically
-                      ) {
-                          Box(
-                              Modifier.size(44.dp).clip(RoundedCornerShape(15.dp))
-                                  .background(Brush.linearGradient(listOf(p.a, p.b, p.c))),
-                              contentAlignment = Alignment.Center
-                          ) { Icon(Icons.Rounded.MusicNote, null, tint = Color.White) }
+                      Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp),
+                          verticalAlignment = Alignment.CenterVertically) {
+                          Box(Modifier.size(44.dp).clip(RoundedCornerShape(15.dp))
+                              .background(Brush.linearGradient(listOf(p.a, p.b, p.c))), contentAlignment = Alignment.Center) {
+                              Icon(Icons.Rounded.MusicNote, null, tint = Color.White)
+                          }
                           Spacer(Modifier.width(12.dp))
                           Column(Modifier.weight(1f)) {
                               Text("موزیک", color = TextHi, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                               Text("${songs.size} آهنگ  ·  ${PALETTES[s.palette].name}", color = TextLo, fontSize = 11.sp)
                           }
-                          Row(
-                              Modifier.clip(RoundedCornerShape(50))
-                                  .background(if (s.muted) Danger.copy(alpha = 0.18f) else Success.copy(alpha = 0.16f))
-                                  .border(1.dp, if (s.muted) Danger.copy(alpha = 0.6f) else Success.copy(alpha = 0.5f), RoundedCornerShape(50))
-                                  .clickable { Sound.set { it.copy(muted = !it.muted) } }
-                                  .padding(horizontal = 12.dp, vertical = 9.dp),
-                              verticalAlignment = Alignment.CenterVertically
-                          ) {
-                              Icon(
-                                  if (s.muted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
-                                  null, tint = if (s.muted) Danger else Success,
-                                  modifier = Modifier.size(17.dp)
-                              )
+                          Row(Modifier.clip(RoundedCornerShape(50))
+                              .background(if (s.muted) Danger.copy(alpha = 0.18f) else Success.copy(alpha = 0.16f))
+                              .border(1.dp, if (s.muted) Danger.copy(alpha = 0.6f) else Success.copy(alpha = 0.5f), RoundedCornerShape(50))
+                              .clickable { Sound.set { it.copy(muted = !it.muted) } }
+                              .padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                              Icon(if (s.muted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp, null,
+                                  tint = if (s.muted) Danger else Success, modifier = Modifier.size(17.dp))
                               Spacer(Modifier.width(6.dp))
-                              Text(
-                                  if (s.muted) "بی‌صدا" else "صدا",
-                                  color = if (s.muted) Danger else Success,
-                                  fontSize = 11.sp, fontWeight = FontWeight.Bold
-                              )
+                              Text(if (s.muted) "بی‌صدا" else "صدا", color = if (s.muted) Danger else Success,
+                                  fontSize = 11.sp, fontWeight = FontWeight.Bold)
                           }
                       }
 
-                      Box(Modifier.weight(1f)) {
-                          LazyColumn(
-                              state = listState,
-                              modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
-                              verticalArrangement = Arrangement.spacedBy(12.dp)
-                          ) {
-                              item(key = "hero") {
-                                  Column(
-                                      Modifier.fillMaxWidth().padding(top = 6.dp),
-                                      horizontalAlignment = Alignment.CenterHorizontally
-                                  ) {
-                                      Disc(p, playing, s.motion, 176.dp)
-                                      Spacer(Modifier.height(14.dp))
+                      Box(Modifier.weight(1f).fillMaxWidth()) {
+                          when (page) {
+                              0 -> Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 4.dp),
+                                  horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
+                                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                      Disc(p, playing, s.motion, 142.dp)
                                       if (s.spectrum) {
-                                          Spectrum(p, s, info.freqs, playing, Modifier.fillMaxWidth().height(56.dp))
-                                          Spacer(Modifier.height(12.dp))
+                                          Spacer(Modifier.height(6.dp))
+                                          Spectrum(p, s, info.freqs, playing, Modifier.fillMaxWidth().height(40.dp))
                                       }
-                                      Text(
-                                          cur?.title ?: "یک آهنگ انتخاب کن",
-                                          color = TextHi, fontSize = 19.sp, fontWeight = FontWeight.Bold,
-                                          maxLines = 1, overflow = TextOverflow.Ellipsis
-                                      )
-                                      Spacer(Modifier.height(3.dp))
-                                      Text(cur?.artist ?: "—", color = TextLo, fontSize = 13.sp, maxLines = 1)
-                                      Spacer(Modifier.height(10.dp))
+                                      Spacer(Modifier.height(6.dp))
+                                      Text(cur?.title ?: "یک آهنگ انتخاب کن", color = TextHi, fontSize = 18.sp,
+                                          fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                      Text(cur?.artist ?: "—", color = TextLo, fontSize = 12.sp, maxLines = 1)
                                       Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                           Badge(if (s.power) "EQ روشن" else "EQ خاموش", if (s.power) p.b else TextLo)
                                           Badge("+${Sound.gain(s).toInt()} dB", p.a)
                                           Badge(String.format("%.2fx", s.speed), Success)
                                       }
                                   }
-                              }
-
-                              item(key = "transport") {
-                                  Column(
-                                      Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
-                                          .background(Color(0x1AFFFFFF)).padding(16.dp)
-                                  ) {
+                                  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                                      .background(Color(0x1AFFFFFF)).padding(horizontal = 14.dp, vertical = 9.dp)) {
                                       val max = dur.toFloat().coerceAtLeast(1f)
-                                      Slider(
-                                          value = pos.toFloat().coerceIn(0f, max),
-                                          onValueChange = { player?.seekTo(it.toLong()) },
-                                          valueRange = 0f..max,
-                                          colors = SliderDefaults.colors(
-                                              thumbColor = p.b, activeTrackColor = p.a,
-                                              inactiveTrackColor = Hairline,
-                                              activeTickColor = Color.Transparent,
-                                              inactiveTickColor = Color.Transparent
-                                          )
-                                      )
+                                      Slider(value = pos.toFloat().coerceIn(0f, max),
+                                          onValueChange = { player?.seekTo(it.toLong()) }, valueRange = 0f..max,
+                                          colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a,
+                                              inactiveTrackColor = Hairline, activeTickColor = Color.Transparent,
+                                              inactiveTickColor = Color.Transparent))
                                       Row(Modifier.fillMaxWidth()) {
-                                          Text(fmt(pos), color = TextLo, fontSize = 11.sp)
+                                          Text(fmt(pos), color = TextLo, fontSize = 10.sp)
                                           Spacer(Modifier.weight(1f))
-                                          Text(fmt(dur), color = TextLo, fontSize = 11.sp)
+                                          Text(fmt(dur), color = TextLo, fontSize = 10.sp)
                                       }
-                                      Spacer(Modifier.height(8.dp))
-                                      Row(
-                                          Modifier.fillMaxWidth(),
-                                          horizontalArrangement = Arrangement.SpaceEvenly,
-                                          verticalAlignment = Alignment.CenterVertically
-                                      ) {
+                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
+                                          verticalAlignment = Alignment.CenterVertically) {
                                           IconButton(onClick = { player?.let { it.shuffleModeEnabled = !shuffle } }) {
                                               Icon(Icons.Rounded.Shuffle, null, tint = if (shuffle) p.b else TextLo)
                                           }
                                           IconButton(onClick = { player?.seekToPrevious() }) {
-                                              Icon(Icons.Rounded.SkipPrevious, null, tint = TextHi, modifier = Modifier.size(32.dp))
+                                              Icon(Icons.Rounded.SkipPrevious, null, tint = TextHi, modifier = Modifier.size(30.dp))
                                           }
-                                          Box(
-                                              Modifier.size(64.dp).clip(CircleShape)
-                                                  .background(Brush.linearGradient(listOf(p.a, p.b)))
-                                                  .clickable { player?.let { if (it.isPlaying) it.pause() else it.play() } },
-                                              contentAlignment = Alignment.Center
-                                          ) {
-                                              Icon(
-                                                  if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                                  null, tint = Color.White, modifier = Modifier.size(34.dp)
-                                              )
+                                          Box(Modifier.size(58.dp).clip(CircleShape)
+                                              .background(Brush.linearGradient(listOf(p.a, p.b)))
+                                              .clickable { player?.let { if (it.isPlaying) it.pause() else it.play() } },
+                                              contentAlignment = Alignment.Center) {
+                                              Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                                  null, tint = Color.White, modifier = Modifier.size(32.dp))
                                           }
                                           IconButton(onClick = { player?.seekToNext() }) {
-                                              Icon(Icons.Rounded.SkipNext, null, tint = TextHi, modifier = Modifier.size(32.dp))
+                                              Icon(Icons.Rounded.SkipNext, null, tint = TextHi, modifier = Modifier.size(30.dp))
                                           }
                                           IconButton(onClick = {
-                                              player?.let {
-                                                  it.repeatMode = when (repeat) {
-                                                      Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                                                      Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                                                      else -> Player.REPEAT_MODE_OFF
-                                                  }
-                                              }
+                                              player?.let { it.repeatMode = when (repeat) {
+                                                  Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                                  Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                                                  else -> Player.REPEAT_MODE_OFF
+                                              } }
                                           }) {
-                                              Icon(
-                                                  if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                                  null, tint = if (repeat != Player.REPEAT_MODE_OFF) p.b else TextLo
-                                              )
+                                              Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                                  null, tint = if (repeat != Player.REPEAT_MODE_OFF) p.b else TextLo)
                                           }
                                       }
                                   }
                               }
-
-                              item(key = "studio") {
-                                  Studio(
-                                      p, s, info,
-                                      onReset = {
-                                          undo = s; undoMsg = "تنظیمات بازنشانی شد"
-                                          Sound.set {
-                                              SoundState(
-                                                  palette = it.palette, motion = it.motion,
-                                                  spectrum = it.spectrum, muted = it.muted
-                                              )
+                              1 -> Studio(p, s, info,
+                                  onReset = {
+                                      undo = s; undoMsg = "تنظیمات بازنشانی شد"
+                                      Sound.set { SoundState(palette = it.palette, motion = it.motion,
+                                          spectrum = it.spectrum, muted = it.muted) }
+                                  },
+                                  onRandom = {
+                                      undo = s; undoMsg = "تنظیم تصادفی اعمال شد"
+                                      val r = Random(System.currentTimeMillis())
+                                      Sound.set { it.copy(power = true, ampDb = r.nextInt(0, 9).toFloat(),
+                                          bass = r.nextInt(-65, 45).toFloat(), treble = r.nextInt(-25, 75).toFloat(),
+                                          spatial = r.nextInt(0, 75).toFloat(), bands = List(8) { r.nextInt(-35, 36).toFloat() }) }
+                                  },
+                                  onExport = {
+                                      val txt = buildString {
+                                          appendLine("تنظیمات صدا — موزیک")
+                                          appendLine("آمپلی‌فایر: +${Sound.gain(s).toInt()} dB")
+                                          appendLine("بیس: ${s.bass.toInt()}")
+                                          appendLine("زیر: ${s.treble.toInt()}")
+                                          appendLine("فضاسازی: ${s.spatial.toInt()}%")
+                                          appendLine("سرعت: ${String.format("%.2f", s.speed)}x")
+                                          info.freqs.forEachIndexed { i, f -> appendLine("باند $f Hz: ${s.bands.getOrElse(i) { 0f }.toInt()}") }
+                                      }
+                                      val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txt) }
+                                      try { ctx.startActivity(Intent.createChooser(send, "خروجی تنظیمات")) } catch (_: Throwable) { }
+                                  })
+                              else -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+                                  Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                      Text("کتابخانه", color = TextHi, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                                          modifier = Modifier.weight(1f))
+                                      Text("${shown.size} نتیجه", color = TextLo, fontSize = 11.sp)
+                                  }
+                                  OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+                                      placeholder = { Text("جست‌وجوی آهنگ یا خواننده…", color = TextLo, fontSize = 13.sp) },
+                                      leadingIcon = { Icon(Icons.Rounded.Search, null, tint = p.b) },
+                                      shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
+                                      colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextHi,
+                                          unfocusedTextColor = TextHi, focusedBorderColor = p.a,
+                                          unfocusedBorderColor = Hairline, cursorColor = p.b,
+                                          focusedContainerColor = Overlay, unfocusedContainerColor = Overlay))
+                                  Spacer(Modifier.height(7.dp))
+                                  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                      Chip(if (sort == 0) "نام ✓" else "نام", p.a) { sort = 0 }
+                                      Chip(if (sort == 1) "مدت ✓" else "مدت", p.a) { sort = 1 }
+                                      Chip(if (sort == 2) "خواننده ✓" else "خواننده", p.a) { sort = 2 }
+                                  }
+                                  Spacer(Modifier.height(7.dp))
+                                  LazyColumn(Modifier.weight(1f).fillMaxWidth(),
+                                      verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                      if (shown.isEmpty()) item {
+                                          Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                                              .background(Overlay).padding(24.dp), contentAlignment = Alignment.Center) {
+                                              Text(if (songs.isEmpty()) "آهنگی روی گوشی پیدا نشد." else "چیزی با این عبارت پیدا نشد.",
+                                                  color = TextLo, fontSize = 13.sp)
                                           }
-                                      },
-                                      onRandom = {
-                                          undo = s; undoMsg = "تنظیم تصادفی اعمال شد"
-                                          val r = Random(System.currentTimeMillis())
-                                          Sound.set {
-                                              it.copy(
-                                                  power = true,
-                                                  ampDb = r.nextInt(0, 9).toFloat(),
-                                                  bass = r.nextInt(-65, 45).toFloat(),
-                                                  treble = r.nextInt(-25, 75).toFloat(),
-                                                  spatial = r.nextInt(0, 75).toFloat(),
-                                                  bands = List(8) { r.nextInt(-35, 36).toFloat() }
-                                              )
-                                          }
-                                      },
-                                      onExport = {
-                                          val txt = buildString {
-                                              appendLine("تنظیمات صدا — موزیک")
-                                              appendLine("آمپلی‌فایر: +${Sound.gain(s).toInt()} dB")
-                                              appendLine("بیس: ${s.bass.toInt()}")
-                                              appendLine("زیر: ${s.treble.toInt()}")
-                                              appendLine("فضاسازی: ${s.spatial.toInt()}%")
-                                              appendLine("سرعت: ${String.format("%.2f", s.speed)}x")
-                                              info.freqs.forEachIndexed { i, f ->
-                                                  appendLine("باند $f Hz: ${s.bands.getOrElse(i) { 0f }.toInt()}")
+                                      }
+                                      itemsIndexed(shown, key = { _, sg -> sg.id }) { _, sg ->
+                                          val active = cur?.id == sg.id
+                                          Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                                              .background(if (active) p.a.copy(alpha = 0.22f) else Overlay)
+                                              .border(1.dp, if (active) p.b.copy(alpha = 0.5f) else Color.Transparent,
+                                                  RoundedCornerShape(16.dp))
+                                              .clickable {
+                                                  val i = songs.indexOf(sg)
+                                                  if (i >= 0) player?.let { it.seekTo(i, 0L); it.play() }
+                                              }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                              Box(Modifier.size(42.dp).clip(CircleShape)
+                                                  .background(if (active) Brush.linearGradient(listOf(p.a, p.b))
+                                                      else Brush.linearGradient(listOf(OverlayHi, Overlay))),
+                                                  contentAlignment = Alignment.Center) {
+                                                  Icon(if (active && playing) Icons.Rounded.VolumeUp else Icons.Rounded.MusicNote,
+                                                      null, tint = if (active) Color.White else TextLo, modifier = Modifier.size(19.dp))
                                               }
+                                              Spacer(Modifier.width(12.dp))
+                                              Column(Modifier.weight(1f)) {
+                                                  Text(sg.title, color = TextHi, fontSize = 14.sp, maxLines = 1,
+                                                      overflow = TextOverflow.Ellipsis)
+                                                  Text(sg.artist, color = TextLo, fontSize = 11.sp, maxLines = 1,
+                                                      overflow = TextOverflow.Ellipsis)
+                                              }
+                                              Spacer(Modifier.width(8.dp))
+                                              Text(fmt(sg.duration), color = TextLo, fontSize = 11.sp)
                                           }
-                                          val send = Intent(Intent.ACTION_SEND).apply {
-                                              type = "text/plain"
-                                              putExtra(Intent.EXTRA_TEXT, txt)
-                                          }
-                                          try {
-                                              ctx.startActivity(Intent.createChooser(send, "خروجی تنظیمات"))
-                                          } catch (_: Throwable) { }
-                                      }
-                                  )
-                              }
-
-                              item(key = "libhead") {
-                                  Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                                      Row(verticalAlignment = Alignment.CenterVertically) {
-                                          Text("کتابخانه", color = TextHi, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                          Text("${shown.size} نتیجه", color = TextLo, fontSize = 11.sp)
-                                      }
-                                      Spacer(Modifier.height(8.dp))
-                                      OutlinedTextField(
-                                          value = query,
-                                          onValueChange = { query = it },
-                                          singleLine = true,
-                                          placeholder = { Text("جست‌وجوی آهنگ یا خواننده…", color = TextLo, fontSize = 13.sp) },
-                                          leadingIcon = { Icon(Icons.Rounded.Search, null, tint = p.b) },
-                                          shape = RoundedCornerShape(16.dp),
-                                          modifier = Modifier.fillMaxWidth(),
-                                          colors = OutlinedTextFieldDefaults.colors(
-                                              focusedTextColor = TextHi, unfocusedTextColor = TextHi,
-                                              focusedBorderColor = p.a, unfocusedBorderColor = Hairline,
-                                              cursorColor = p.b,
-                                              focusedContainerColor = Overlay, unfocusedContainerColor = Overlay
-                                          )
-                                      )
-                                      Spacer(Modifier.height(8.dp))
-                                      Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                          Chip(if (sort == 0) "نام ✓" else "نام", p.a) { sort = 0 }
-                                          Chip(if (sort == 1) "مدت ✓" else "مدت", p.a) { sort = 1 }
-                                          Chip(if (sort == 2) "خواننده ✓" else "خواننده", p.a) { sort = 2 }
                                       }
                                   }
                               }
-
-                              if (shown.isEmpty()) {
-                                  item(key = "empty") {
-                                      Box(
-                                          Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-                                              .background(Overlay).padding(24.dp),
-                                          contentAlignment = Alignment.Center
-                                      ) {
-                                          Text(
-                                              if (songs.isEmpty()) "آهنگی روی گوشی پیدا نشد." else "چیزی با این عبارت پیدا نشد.",
-                                              color = TextLo, fontSize = 13.sp
-                                          )
-                                      }
-                                  }
-                              }
-
-                              itemsIndexed(shown, key = { _, sg -> sg.id }) { _, sg ->
-                                  val active = cur?.id == sg.id
-                                  Row(
-                                      Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                                          .background(if (active) p.a.copy(alpha = 0.22f) else Overlay)
-                                          .border(1.dp, if (active) p.b.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(16.dp))
-                                          .clickable {
-                                              val i = songs.indexOf(sg)
-                                              if (i >= 0) player?.let { it.seekTo(i, 0L); it.play() }
-                                          }
-                                          .padding(10.dp),
-                                      verticalAlignment = Alignment.CenterVertically
-                                  ) {
-                                      Box(
-                                          Modifier.size(42.dp).clip(CircleShape)
-                                              .background(if (active) Brush.linearGradient(listOf(p.a, p.b)) else Brush.linearGradient(listOf(OverlayHi, Overlay))),
-                                          contentAlignment = Alignment.Center
-                                      ) {
-                                          Icon(
-                                              if (active && playing) Icons.Rounded.VolumeUp else Icons.Rounded.MusicNote,
-                                              null, tint = if (active) Color.White else TextLo,
-                                              modifier = Modifier.size(19.dp)
-                                          )
-                                      }
-                                      Spacer(Modifier.width(12.dp))
-                                      Column(Modifier.weight(1f)) {
-                                          Text(sg.title, color = TextHi, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                          Text(sg.artist, color = TextLo, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                      }
-                                      Spacer(Modifier.width(8.dp))
-                                      Text(fmt(sg.duration), color = TextLo, fontSize = 11.sp)
-                                  }
-                              }
-
-                              item(key = "tail") { Spacer(Modifier.height(90.dp)) }
                           }
-
-                          ScrollRail(
-                              listState, p,
-                              Modifier.align(Alignment.CenterEnd).padding(end = 4.dp, top = 8.dp, bottom = 8.dp)
-                                  .width(4.dp).fillMaxHeight()
-                          )
+                      }
+                      Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)
+                          .clip(RoundedCornerShape(20.dp)).background(Color(0xE8171422)).padding(5.dp),
+                          horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                          listOf("پخش", "اکولایزر", "آهنگ‌ها").forEachIndexed { i, label ->
+                              Box(Modifier.weight(1f).clip(RoundedCornerShape(15.dp))
+                                  .background(if (page == i) p.a.copy(alpha = 0.30f) else Color.Transparent)
+                                  .clickable { page = i }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                                  Text(label, color = if (page == i) p.b else TextLo, fontSize = 12.sp,
+                                      fontWeight = if (page == i) FontWeight.Bold else FontWeight.Normal)
+                              }
+                          }
                       }
                   }
 
