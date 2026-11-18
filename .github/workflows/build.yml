@@ -343,7 +343,6 @@ jobs:
                   try {
                       setMediaNotificationProvider(
                           DefaultMediaNotificationProvider.Builder(this)
-                              .setSmallIcon(R.drawable.ic_note)
                               .build()
                       )
                   } catch (_: Throwable) { }
