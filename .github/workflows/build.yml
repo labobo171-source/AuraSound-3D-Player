@@ -153,7 +153,6 @@ jobs:
 
           import android.media.audiofx.Equalizer
           import android.media.audiofx.LoudnessEnhancer
-          import android.media.audiofx.Virtualizer
           import kotlinx.coroutines.flow.MutableStateFlow
           import kotlin.math.abs
           import kotlin.math.roundToInt
@@ -226,7 +225,6 @@ jobs:
 
               private val eq = try { Equalizer(0, sessionId) } catch (t: Throwable) { null }
               private val amp = try { LoudnessEnhancer(sessionId) } catch (t: Throwable) { null }
-              private val virt = try { Virtualizer(0, sessionId) } catch (t: Throwable) { null }
 
               private var min = -1500
               private var max = 1500
@@ -253,12 +251,11 @@ jobs:
                           e.enabled = true
                       }
                   } catch (_: Throwable) { }
-                  try { virt?.enabled = false } catch (_: Throwable) { }
                   Sound.info.value = EngineInfo(
                       freqs = if (freqs.isEmpty()) listOf(60, 230, 910, 3600, 14000) else freqs.toList(),
                       eqOk = eq != null && n > 0,
                       ampOk = amp != null,
-                      spatialOk = virt != null,
+                      spatialOk = true,
                       rangeDb = (max / 100).coerceAtLeast(1)
                   )
               }
@@ -269,18 +266,6 @@ jobs:
                   try {
                       amp?.enabled = on && g > 0f
                       amp?.setTargetGain((g * 100f).roundToInt())
-                  } catch (_: Throwable) { }
-                  try {
-                      val modeScale = when {
-                          s.surround3d && s.speaker3d -> 0.82f
-                          s.surround3d -> 1f
-                          s.speaker3d -> 0.65f
-                          else -> 0f
-                      }
-                      val strength = (s.intensity.coerceIn(0f, 100f) * 10f * modeScale *
-                          if (s.drivingMode) 0.72f else 1f).roundToInt().coerceIn(0, 1000)
-                      virt?.enabled = on && modeScale > 0f && strength > 0
-                      virt?.setStrength(strength.toShort())
                   } catch (_: Throwable) { }
                   val e = eq ?: return
                   if (n <= 0) return
@@ -309,7 +294,76 @@ jobs:
               fun release() {
                   try { eq?.enabled = false; eq?.release() } catch (_: Throwable) { }
                   try { amp?.enabled = false; amp?.release() } catch (_: Throwable) { }
-                  try { virt?.enabled = false; virt?.release() } catch (_: Throwable) { }
+              }
+          }
+          EOF
+          cat > app/src/main/java/ir/player/music/StereoSpatialAudioProcessor.kt <<'EOF'
+          package ir.player.music
+
+          import android.media.AudioFormat
+          import androidx.media3.common.audio.AudioProcessor
+          import androidx.media3.common.audio.BaseAudioProcessor
+          import androidx.media3.common.util.UnstableApi
+          import java.nio.ByteBuffer
+          import kotlin.math.roundToInt
+
+          @OptIn(UnstableApi::class)
+          class StereoSpatialAudioProcessor(
+              private val stateProvider: () -> SoundState
+          ) : BaseAudioProcessor() {
+
+              override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+                  val supportedEncoding = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_16BIT ||
+                      inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_FLOAT
+                  return if (inputAudioFormat.channelCount == 2 && supportedEncoding) {
+                      inputAudioFormat
+                  } else {
+                      AudioProcessor.AudioFormat.NOT_SET
+                  }
+              }
+
+              override fun queueInput(inputBuffer: ByteBuffer) {
+                  val bytes = inputBuffer.remaining()
+                  if (bytes == 0) return
+                  val output = replaceOutputBuffer(bytes)
+                  val state = stateProvider()
+                  val level = (state.intensity.coerceIn(0f, 100f) / 100f) *
+                      if (state.drivingMode) 0.72f else 1f
+                  val surroundWidth = if (state.surround3d) 0.78f * level else 0f
+                  val speakerWidth = if (state.speaker3d) 0.48f * level else 0f
+                  val width = 1f + surroundWidth + speakerWidth
+                  val floatPcm = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_FLOAT
+
+                  while (inputBuffer.remaining() >= if (floatPcm) 8 else 4) {
+                      val left: Float
+                      val right: Float
+                      if (floatPcm) {
+                          left = inputBuffer.float
+                          right = inputBuffer.float
+                      } else {
+                          left = inputBuffer.short / 32768f
+                          right = inputBuffer.short / 32768f
+                      }
+
+                      var outLeft = left
+                      var outRight = right
+                      if (state.power && (state.surround3d || state.speaker3d) && level > 0f) {
+                          val mid = (left + right) * 0.5f
+                          val side = (left - right) * 0.5f * width
+                          outLeft = mid + side
+                          outRight = mid - side
+                      }
+
+                      if (floatPcm) {
+                          output.putFloat(outLeft.coerceIn(-1f, 1f))
+                          output.putFloat(outRight.coerceIn(-1f, 1f))
+                      } else {
+                          output.putShort((outLeft.coerceIn(-1f, 1f) * 32767f).roundToInt().toShort())
+                          output.putShort((outRight.coerceIn(-1f, 1f) * 32767f).roundToInt().toShort())
+                      }
+                  }
+                  while (inputBuffer.hasRemaining()) output.put(inputBuffer.get())
+                  output.flip()
               }
           }
           EOF
@@ -319,11 +373,15 @@ jobs:
           import android.content.Intent
           import androidx.media3.common.AudioAttributes
           import androidx.media3.common.C
+          import androidx.media3.common.util.UnstableApi
           import androidx.media3.common.Player
           import androidx.media3.exoplayer.ExoPlayer
           import androidx.media3.session.DefaultMediaNotificationProvider
           import androidx.media3.session.MediaSession
           import androidx.media3.session.MediaSessionService
+          import androidx.media3.exoplayer.DefaultRenderersFactory
+          import androidx.media3.exoplayer.audio.AudioSink
+          import androidx.media3.exoplayer.audio.DefaultAudioSink
           import kotlinx.coroutines.CoroutineScope
           import kotlinx.coroutines.Dispatchers
           import kotlinx.coroutines.SupervisorJob
@@ -331,6 +389,7 @@ jobs:
           import kotlinx.coroutines.flow.combine
           import kotlinx.coroutines.launch
 
+          @OptIn(UnstableApi::class)
           class PlayerService : MediaSessionService() {
 
               private var player: ExoPlayer? = null
@@ -341,7 +400,20 @@ jobs:
 
               override fun onCreate() {
                   super.onCreate()
-                  val p = ExoPlayer.Builder(this)
+                  val spatialProcessor = StereoSpatialAudioProcessor { Sound.state.value }
+                  val renderersFactory = object : DefaultRenderersFactory(this) {
+                      override fun buildAudioSink(
+                          context: android.content.Context,
+                          enableFloatOutput: Boolean,
+                          enableAudioTrackPlaybackParams: Boolean
+                      ): AudioSink {
+                          return DefaultAudioSink.Builder(context)
+                              .setEnableFloatOutput(enableFloatOutput)
+                              .setAudioProcessors(arrayOf(spatialProcessor))
+                              .build()
+                      }
+                  }
+                  val p = ExoPlayer.Builder(this, renderersFactory)
                       .setAudioAttributes(
                           AudioAttributes.Builder()
                               .setUsage(C.USAGE_MEDIA)
@@ -816,12 +888,11 @@ jobs:
                               Text("Intensity", color = TextHi, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                               Text("شدت افکت سه‌بعدی", color = TextLo, fontSize = 9.sp)
                           }
-                          Knob("Intensity", s.intensity, 0f..100f, "${s.intensity.toInt()}%", p.c, info.spatialOk) { v ->
+                          Knob("Intensity", s.intensity, 0f..100f, "${s.intensity.toInt()}%", p.c, true) { v ->
                               Sound.set { it.copy(intensity = v) }
                           }
                       }
-                      Text(if (info.spatialOk) "افکت سه‌بعدی با پشتیبانی دستگاه اعمال می‌شود." else
-                          "افکت سه‌بعدی به پشتیبانی خروجی صوتی دستگاه وابسته است.", color = TextLo, fontSize = 9.sp)
+                      Text("پردازش سه‌بعدی نرم‌افزاری روی صدای استریو اعمال می‌شود.", color = TextLo, fontSize = 9.sp)
                   }
               }
           }
