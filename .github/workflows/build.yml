@@ -798,7 +798,7 @@ jobs:
                   Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
                       verticalArrangement = Arrangement.spacedBy(13.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.SurroundSound, null, tint = p.b, modifier = Modifier.size(22.dp))
+                          Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(22.dp))
                           Column(Modifier.weight(1f).padding(start = 8.dp)) {
                               Text("پردازش صدای سه‌بعدی", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                               Text("شفاف‌سازی ملایم صدا به‌صورت داخلی فعال است", color = TextLo, fontSize = 10.sp)
@@ -881,7 +881,7 @@ jobs:
           import androidx.compose.material.icons.rounded.SkipPrevious
           import androidx.compose.material.icons.rounded.Undo
           import androidx.compose.material.icons.rounded.VolumeOff
-          import androidx.compose.material.icons.rounded.SurroundSound
+          import androidx.compose.material.icons.rounded.VolumeUp
           import androidx.compose.material.icons.rounded.DirectionsCar
           import androidx.compose.material.icons.rounded.VolumeUp
           import androidx.compose.material3.Button
@@ -1284,7 +1284,7 @@ jobs:
                           horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                           val navItems = listOf(
                               Triple("پخش", Icons.Rounded.MusicNote, 0),
-                              Triple("صدا", Icons.Rounded.SurroundSound, 1),
+                              Triple("صدا", Icons.Rounded.VolumeUp, 1),
                               Triple("آهنگ‌ها", Icons.Rounded.Search, 2),
                               Triple("رانندگی", Icons.Rounded.DirectionsCar, 3)
                           )
