@@ -401,6 +401,8 @@ jobs:
           import androidx.compose.foundation.shape.CircleShape
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.rounded.MusicNote
+          import androidx.compose.material.icons.rounded.GraphicEq
+          import androidx.compose.material.icons.rounded.LibraryMusic
           import androidx.compose.material3.Icon
           import androidx.compose.runtime.Composable
           import androidx.compose.runtime.getValue
@@ -1291,15 +1293,38 @@ jobs:
                               }
                           }
                       }
-                      Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)
-                          .clip(RoundedCornerShape(20.dp)).background(Color(0xE8171422)).padding(5.dp),
+                      Row(Modifier.fillMaxWidth().navigationBarsPadding()
+                          .padding(horizontal = 14.dp, vertical = 8.dp)
+                          .clip(RoundedCornerShape(22.dp))
+                          .background(Color(0xF51B1929))
+                          .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+                          .padding(horizontal = 6.dp, vertical = 6.dp),
                           horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                          listOf("پخش", "اکولایزر", "آهنگ‌ها").forEachIndexed { i, label ->
-                              Box(Modifier.weight(1f).clip(RoundedCornerShape(15.dp))
-                                  .background(if (page == i) p.a.copy(alpha = 0.30f) else Color.Transparent)
-                                  .clickable { page = i }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                                  Text(label, color = if (page == i) p.b else TextLo, fontSize = 12.sp,
-                                      fontWeight = if (page == i) FontWeight.Bold else FontWeight.Normal)
+                          val navItems = listOf(
+                              Triple("پخش", Icons.Rounded.MusicNote, 0),
+                              Triple("اکولایزر", Icons.Rounded.GraphicEq, 1),
+                              Triple("آهنگ‌ها", Icons.Rounded.LibraryMusic, 2)
+                          )
+                          navItems.forEach { (label, navIcon, index) ->
+                              val selected = page == index
+                              Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                                  .background(if (selected) p.a.copy(alpha = 0.30f) else Color.Transparent)
+                                  .clickable { page = index }
+                                  .padding(vertical = 9.dp),
+                                  horizontalAlignment = Alignment.CenterHorizontally,
+                                  verticalArrangement = Arrangement.Center) {
+                                  Icon(navIcon, contentDescription = label,
+                                      tint = if (selected) Color.White else Color(0xFFB8B5C8),
+                                      modifier = Modifier.size(22.dp))
+                                  Spacer(Modifier.height(4.dp))
+                                  Text(label,
+                                      color = if (selected) Color.White else Color(0xFFD0CDDA),
+                                      fontSize = 12.sp,
+                                      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                                  if (selected) {
+                                      Spacer(Modifier.height(3.dp))
+                                      Box(Modifier.width(22.dp).height(3.dp).clip(CircleShape).background(p.b))
+                                  }
                               }
                           }
                       }
