@@ -790,6 +790,7 @@ jobs:
           import androidx.compose.foundation.layout.Row
           import androidx.compose.foundation.layout.Spacer
           import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.fillMaxSize
           import androidx.compose.foundation.layout.padding
           import androidx.compose.foundation.layout.size
           import androidx.compose.foundation.layout.width
@@ -940,8 +941,8 @@ jobs:
                               }
                               Toggle("فعال", s.crystalClear, p.b) { Sound.set { it.copy(crystalClear = !it.crystalClear) } }
                           }
-                          Knob("میزان شفافیت", s.crystalAmount, 0f..100f, "${s.crystalAmount.toInt()}%", p.b, s.crystalClear) {
-                              Sound.set { it.copy(crystalAmount = it) }
+                          Knob("میزان شفافیت", s.crystalAmount, 0f..100f, "${s.crystalAmount.toInt()}%", p.b, s.crystalClear) { v ->
+                              Sound.set { it.copy(crystalAmount = v) }
                           }
                       }
                   }
@@ -955,8 +956,8 @@ jobs:
                               }
                               Toggle("فعال", s.stereoWidthEnabled, Info) { Sound.set { it.copy(stereoWidthEnabled = !it.stereoWidthEnabled) } }
                           }
-                          Knob("پهنای استریو", s.stereoWidth, 0f..100f, "${s.stereoWidth.toInt()}%", Info, s.stereoWidthEnabled) {
-                              Sound.set { it.copy(stereoWidth = it) }
+                          Knob("پهنای استریو", s.stereoWidth, 0f..100f, "${s.stereoWidth.toInt()}%", Info, s.stereoWidthEnabled) { v ->
+                              Sound.set { it.copy(stereoWidth = v) }
                           }
                       }
                   }
@@ -970,8 +971,8 @@ jobs:
                               }
                               Toggle("فعال", s.ultraTreble, p.c) { Sound.set { it.copy(ultraTreble = !it.ultraTreble) } }
                           }
-                          Knob("جزئیات بالا", s.trebleAmount, 0f..100f, "${s.trebleAmount.toInt()}%", p.c, s.ultraTreble) {
-                              Sound.set { it.copy(trebleAmount = it) }
+                          Knob("جزئیات بالا", s.trebleAmount, 0f..100f, "${s.trebleAmount.toInt()}%", p.c, s.ultraTreble) { v ->
+                              Sound.set { it.copy(trebleAmount = v) }
                           }
                       }
                   }
@@ -985,8 +986,8 @@ jobs:
                               }
                               Toggle("فعال", s.dynamicClarity, Warning) { Sound.set { it.copy(dynamicClarity = !it.dynamicClarity) } }
                           }
-                          Knob("کنترل داینامیک", s.dynamicAmount, 0f..100f, "${s.dynamicAmount.toInt()}%", Warning, s.dynamicClarity) {
-                              Sound.set { it.copy(dynamicAmount = it) }
+                          Knob("کنترل داینامیک", s.dynamicAmount, 0f..100f, "${s.dynamicAmount.toInt()}%", Warning, s.dynamicClarity) { v ->
+                              Sound.set { it.copy(dynamicAmount = v) }
                           }
                       }
                   }
@@ -1000,8 +1001,8 @@ jobs:
                               }
                               Toggle("فعال", s.vocalEnhancer, Info) { Sound.set { it.copy(vocalEnhancer = !it.vocalEnhancer) } }
                           }
-                          Knob("وضوح وکال", s.vocalAmount, 0f..100f, "${s.vocalAmount.toInt()}%", Info, s.vocalEnhancer) {
-                              Sound.set { it.copy(vocalAmount = it) }
+                          Knob("وضوح وکال", s.vocalAmount, 0f..100f, "${s.vocalAmount.toInt()}%", Info, s.vocalEnhancer) { v ->
+                              Sound.set { it.copy(vocalAmount = v) }
                           }
                       }
                   }
@@ -1015,8 +1016,8 @@ jobs:
                               }
                               Toggle("هوشمند", s.smartClarity, Success) { Sound.set { it.copy(smartClarity = !it.smartClarity) } }
                           }
-                          Knob("شدت هوشمند", s.smartAmount, 0f..100f, "${s.smartAmount.toInt()}%", Success, s.smartClarity) {
-                              Sound.set { it.copy(smartAmount = it) }
+                          Knob("شدت هوشمند", s.smartAmount, 0f..100f, "${s.smartAmount.toInt()}%", Success, s.smartClarity) { v ->
+                              Sound.set { it.copy(smartAmount = v) }
                           }
                       }
                   }
