@@ -1808,6 +1808,7 @@ jobs:
                                   }
                               }
                               2, 5 -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+                                  val librarySongs = if (page == 5) songs.filter { it.id.toString() in favorites } else shown
                                   Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                   val librarySongs = if (page == 5) songs.filter { it.id.toString() in favorites } else shown
                                       Text(if (page == 5) "علاقه‌مندی‌ها" else "کتابخانه", color = TextHi, fontSize = 16.sp, fontWeight = FontWeight.Bold,
@@ -1832,7 +1833,7 @@ jobs:
                                   Spacer(Modifier.height(7.dp))
                                   LazyColumn(Modifier.weight(1f).fillMaxWidth(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                      if (shown.isEmpty()) item {
+                                      if (librarySongs.isEmpty()) item {
                                           Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
                                               .background(Overlay).padding(24.dp), contentAlignment = Alignment.Center) {
                                               Text(if (page == 5) "هنوز آهنگی به علاقه‌مندی‌ها اضافه نشده." else if (songs.isEmpty()) "آهنگی روی گوشی پیدا نشد." else "چیزی با این عبارت پیدا نشد.",
