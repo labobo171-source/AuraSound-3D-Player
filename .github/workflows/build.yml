@@ -282,22 +282,40 @@ jobs:
                   val e = eq ?: return
                   if (n <= 0) return
                   try {
-                      e.enabled = on
-                      val lv = FloatArray(n)
-                      if (on) {
-                          for (b in 0 until n) {
-                              val hz = e.getCenterFreq(b.toShort()) / 1000
-                              lv[b] = when {
-                                  hz in 2500..7000 -> 0.065f
-                                  hz in 7001..12000 -> 0.03f
-                                  hz < 90 -> -0.018f
+                      // Apply Crystal tone shaping directly to Android's audio-session
+                      // Equalizer as well as the PCM processor. This keeps the tonal
+                      // effects audible even on devices that bypass custom PCM processing.
+                      val crystalEqOn = s.crystalClear || s.ultraTreble ||
+                          s.vocalEnhancer || s.smartClarity
+                      e.enabled = on || crystalEqOn
+                      for (b in 0 until n) {
+                          val hz = e.getCenterFreq(b.toShort()) / 1000
+                          var db = if (on) when {
+                              hz in 2500..7000 -> 0.9f
+                              hz in 7001..12000 -> 0.45f
+                              hz < 90 -> -0.27f
+                              else -> 0f
+                          } else 0f
+
+                          if (s.crystalClear) {
+                              val amount = s.crystalAmount.coerceIn(0f, 100f) / 100f
+                              db += when (hz) {
+                                  in 1800..7000 -> 4.0f * amount
+                                  in 7001..12000 -> 2.2f * amount
                                   else -> 0f
                               }
                           }
-                      }
-                      for (b in 0 until n) {
-                          val v = lv[b].coerceIn(-0.35f, 0.35f)
-                          val mb = (if (v >= 0f) v * max else v * -min).roundToInt().toShort()
+                          if (s.ultraTreble && hz >= 5000) {
+                              db += 5.0f * (s.trebleAmount.coerceIn(0f, 100f) / 100f)
+                          }
+                          if (s.vocalEnhancer && hz in 350..5000) {
+                              db += 3.5f * (s.vocalAmount.coerceIn(0f, 100f) / 100f)
+                          }
+                          if (s.smartClarity && hz in 1800..6500) {
+                              db += 2.0f * (s.smartAmount.coerceIn(0f, 100f) / 100f)
+                          }
+                          val mb = (db * 100f).roundToInt()
+                              .coerceIn(min, max).toShort()
                           e.setBandLevel(b.toShort(), mb)
                       }
                   } catch (_: Throwable) { }
