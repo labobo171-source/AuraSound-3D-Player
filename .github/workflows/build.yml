@@ -1378,9 +1378,33 @@ jobs:
               }
               val time = remember(now) { SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(now)) }
               val date = remember(now) {
-                  val pc = android.icu.util.PersianCalendar().apply { timeInMillis = now }
-                  val raw = "%04d/%02d/%02d".format(Locale.US, pc.get(android.icu.util.Calendar.YEAR),
-                      pc.get(android.icu.util.Calendar.MONTH) + 1, pc.get(android.icu.util.Calendar.DAY_OF_MONTH))
+                  val gc = java.util.Calendar.getInstance().apply { timeInMillis = now }
+                  val gy = gc.get(java.util.Calendar.YEAR)
+                  val gm = gc.get(java.util.Calendar.MONTH) + 1
+                  val gd = gc.get(java.util.Calendar.DAY_OF_MONTH)
+                  val gdm = intArrayOf(0,31,if (java.util.GregorianCalendar().isLeapYear(gy)) 29 else 28,31,30,31,30,31,31,30,31,30,31)
+                  var jy = gy - 621
+                  var days = 0
+                  for (m in 1 until gm) days += gdm[m]
+                  days += gd
+                  val marchDay = if (java.util.GregorianCalendar().isLeapYear(gy)) 20 else 21
+                  if (days > marchDay) {
+                      days -= marchDay
+                  } else {
+                      jy -= 1
+                      days += if (java.util.GregorianCalendar().isLeapYear(gy - 1)) 366 - 79 else 365 - 79
+                  }
+                  var jm: Int
+                  var jd: Int
+                  if (days <= 186) {
+                      jm = (days - 1) / 31 + 1
+                      jd = (days - 1) % 31 + 1
+                  } else {
+                      val rest = days - 186
+                      jm = (rest - 1) / 30 + 7
+                      jd = (rest - 1) % 30 + 1
+                  }
+                  val raw = "%04d/%02d/%02d".format(Locale.US, jy, jm, jd)
                   val digits = "۰۱۲۳۴۵۶۷۸۹"
                   raw.map { ch -> if (ch in '0'..'9') digits[ch - '0'] else ch }.joinToString("")
               }
