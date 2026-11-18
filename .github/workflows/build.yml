@@ -798,8 +798,7 @@ jobs:
                   Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
                       verticalArrangement = Arrangement.spacedBy(13.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.MusicNote, null, tint = p.b, modifier = Modifier.size(22.dp))
-                          Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                               Text("پردازش صدای سه‌بعدی", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                               Text("شفاف‌سازی ملایم صدا به‌صورت داخلی فعال است", color = TextLo, fontSize = 10.sp)
                           }
