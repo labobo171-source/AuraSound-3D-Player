@@ -22,7 +22,7 @@ jobs:
           gradle-version: '8.7'
       - name: Generate project
         run: |
-          mkdir -p app/src/main/java/ir/player/music app/src/main/res/values app/src/main/res/drawable
+          mkdir -p app/src/main/java/ir/player/music app/src/main/res/values app/src/main/res/drawable app/src/main/res/xml
           cat > settings.gradle.kts <<'EOF'
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
@@ -113,6 +113,14 @@ jobs:
                           <action android:name="androidx.media3.session.MediaSessionService" />
                       </intent-filter>
                   </service>
+                  <service
+                      android:name=".AutumnLeavesWallpaperService"
+                      android:label="Autumn Leaves Live Wallpaper"
+                      android:permission="android.permission.BIND_WALLPAPER"
+                      android:exported="true">
+                      <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
+                      <meta-data android:name="android.service.wallpaper" android:resource="@xml/autumn_wallpaper" />
+                  </service>
               </application>
           </manifest>
           EOF
@@ -125,6 +133,16 @@ jobs:
                   <item name="android:navigationBarColor">@android:color/transparent</item>
               </style>
           </resources>
+          EOF
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources><string name="autumn_wallpaper_description">تصویر زمینه زنده با برگ‌های پاییزی در حال ریزش</string></resources>
+          EOF
+          cat > app/src/main/res/xml/autumn_wallpaper.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+              android:description="@string/autumn_wallpaper_description"
+              android:thumbnail="@drawable/ic_launcher" />
           EOF
           cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1245,6 +1263,7 @@ jobs:
           import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
+          import android.app.WallpaperManager
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
@@ -1336,6 +1355,9 @@ jobs:
           import kotlinx.coroutines.delay
           import kotlinx.coroutines.withContext
           import kotlin.random.Random
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
           
           data class Song(val id: Long, val uri: Uri, val title: String, val artist: String, val duration: Long, val dateAdded: Long)
           
@@ -1365,6 +1387,27 @@ jobs:
           fun fmt(ms: Long): String {
               val t = (ms / 1000L).coerceAtLeast(0L)
               return "%d:%02d".format(t / 60, t % 60)
+          }
+          
+          @Composable
+          fun DigitalClock(p: Pal, compact: Boolean = false) {
+              var now by remember { mutableStateOf(System.currentTimeMillis()) }
+              LaunchedEffect(Unit) {
+                  while (true) { now = System.currentTimeMillis(); delay(1000L) }
+              }
+              val time = remember(now) { SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(now)) }
+              val date = remember(now) { SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(Date(now)) }
+              Column(
+                  modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                      .background(Brush.linearGradient(listOf(p.a.copy(alpha = 0.20f), p.b.copy(alpha = 0.12f))))
+                      .border(1.dp, p.b.copy(alpha = 0.32f), RoundedCornerShape(18.dp))
+                      .padding(horizontal = if (compact) 18.dp else 24.dp, vertical = if (compact) 8.dp else 11.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Text(time, color = TextHi, fontSize = if (compact) 29.sp else 34.sp,
+                      fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                  Text(date, color = TextLo, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              }
           }
           
           fun loadSongs(ctx: Context): List<Song> {
@@ -1509,7 +1552,6 @@ jobs:
           
               Box(Modifier.fillMaxSize()) {
                   Aurora(p, s.motion, Modifier.fillMaxSize())
-                  SeasonalAtmosphere(s.palette, s.motion, Modifier.fillMaxSize())
                   if (!granted) {
                       Column(Modifier.align(Alignment.Center).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                           Disc(p, false, false, 150.dp)
@@ -1555,6 +1597,8 @@ jobs:
                               0 -> Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 4.dp),
                                   horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
                                   Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                      DigitalClock(p)
+                                      Spacer(Modifier.height(8.dp))
                                       Disc(p, playing, s.motion, if (s.drivingMode) 110.dp else 142.dp)
                                       Spacer(Modifier.height(6.dp))
                                       Text(cur?.title ?: "یک آهنگ انتخاب کن", color = TextHi, fontSize = 18.sp,
@@ -1564,6 +1608,18 @@ jobs:
                                           listOf("بهار", "تابستان", "پاییز", "زمستان").forEachIndexed { season, title ->
                                               Chip(if (s.palette == season) "$title ✓" else title, p.a) { Sound.set { it.copy(palette = season) } }
                                           }
+                                      }
+                                      Button(onClick = {
+                                          val wi = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+                                              putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                                                  ComponentName(ctx, AutumnLeavesWallpaperService::class.java))
+                                          }
+                                          try { ctx.startActivity(wi) } catch (_: Throwable) {
+                                              try { ctx.startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)) } catch (_: Throwable) { }
+                                          }
+                                      }, colors = ButtonDefaults.buttonColors(containerColor = p.a.copy(alpha = 0.82f))) {
+                                          Text("Autumn Leaves Live Wallpaper", color = Color.White,
+                                              fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                       }
                                       Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                           Badge(if (s.power) "EQ روشن" else "EQ خاموش", if (s.power) p.b else TextLo)
@@ -1627,6 +1683,7 @@ jobs:
                                       Icon(Icons.Rounded.DirectionsCar, null, tint = Color.White, modifier = Modifier.size(58.dp))
                                   }
                                   Text("حالت رانندگی", color = TextHi, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                  DigitalClock(p, compact = true)
                                   Text("کنترل‌های ساده‌تر و افکت سه‌بعدی ملایم‌تر برای گوش‌دادن در خودرو",
                                       color = TextLo, fontSize = 12.sp)
                                   Toggle("حالت رانندگی ${if (s.drivingMode) "روشن" else "خاموش"}",
@@ -1827,6 +1884,114 @@ jobs:
                       .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(50))
                       .padding(horizontal = 10.dp, vertical = 5.dp)
               ) { Text(text, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+          }
+          EOF
+          cat > app/src/main/java/ir/player/music/AutumnLeavesWallpaperService.kt <<'EOF'
+          package ir.player.music
+
+          import android.graphics.Canvas
+          import android.graphics.Color
+          import android.graphics.Paint
+          import android.graphics.Path
+          import android.os.Handler
+          import android.os.Looper
+          import android.service.wallpaper.WallpaperService
+          import android.view.SurfaceHolder
+          import kotlin.math.sin
+
+          class AutumnLeavesWallpaperService : WallpaperService() {
+              override fun onCreateEngine(): Engine = LeavesEngine()
+
+              inner class LeavesEngine : Engine() {
+                  private val handler = Handler(Looper.getMainLooper())
+                  private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                  private var visible = false
+                  private var frame = 0
+                  private val colors = intArrayOf(
+                      Color.rgb(205, 82, 25), Color.rgb(226, 132, 35),
+                      Color.rgb(164, 50, 28), Color.rgb(235, 174, 62),
+                      Color.rgb(132, 52, 27)
+                  )
+                  private val drawFrame = object : Runnable {
+                      override fun run() {
+                          if (!visible) return
+                          var canvas: Canvas? = null
+                          try {
+                              canvas = surfaceHolder.lockCanvas()
+                              if (canvas != null) drawScene(canvas)
+                          } catch (_: Throwable) {
+                          } finally {
+                              if (canvas != null) try { surfaceHolder.unlockCanvasAndPost(canvas) } catch (_: Throwable) { }
+                          }
+                          frame++
+                          handler.postDelayed(this, 34L)
+                      }
+                  }
+
+                  override fun onVisibilityChanged(visibleNow: Boolean) {
+                      visible = visibleNow
+                      handler.removeCallbacks(drawFrame)
+                      if (visible) handler.post(drawFrame)
+                  }
+
+                  override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                      super.onSurfaceChanged(holder, format, width, height)
+                      if (visible) { handler.removeCallbacks(drawFrame); handler.post(drawFrame) }
+                  }
+
+                  override fun onSurfaceDestroyed(holder: SurfaceHolder) {
+                      visible = false
+                      handler.removeCallbacks(drawFrame)
+                      super.onSurfaceDestroyed(holder)
+                  }
+
+                  override fun onDestroy() {
+                      visible = false
+                      handler.removeCallbacks(drawFrame)
+                      super.onDestroy()
+                  }
+
+                  private fun drawScene(canvas: Canvas) {
+                      val w = canvas.width.toFloat()
+                      val h = canvas.height.toFloat()
+                      paint.shader = android.graphics.LinearGradient(0f, 0f, w, h,
+                          Color.rgb(49, 25, 16), Color.rgb(13, 17, 19),
+                          android.graphics.Shader.TileMode.CLAMP)
+                      canvas.drawRect(0f, 0f, w, h, paint)
+                      paint.shader = null
+                      paint.color = Color.argb(34, 245, 139, 54)
+                      paint.maskFilter = android.graphics.BlurMaskFilter(90f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+                      canvas.drawCircle(w * 0.78f, h * 0.20f, w * 0.28f, paint)
+                      paint.maskFilter = null
+                      val t = frame / 30f
+                      for (i in 0 until 30) {
+                          val seed = i * 37.71f
+                          val speed = 0.22f + (i % 7) * 0.055f
+                          val y = ((i * 0.137f + t * speed / 10f) % 1.18f) * h - h * 0.08f
+                          val x = ((i * 0.319f) % 1f) * w +
+                              sin(t * (0.65f + i % 4 * 0.12f) + seed) * w * 0.055f
+                          val size = 10f + (i % 5) * 3.5f
+                          val rotation = (sin(t * 1.1f + seed) * 55f + t * (18f + i % 3 * 7f)) % 360f
+                          paint.color = colors[i % colors.size]
+                          paint.alpha = 185 + (i % 3) * 22
+                          canvas.save()
+                          canvas.rotate(rotation, x, y)
+                          val leaf = Path().apply {
+                              moveTo(x, y - size)
+                              cubicTo(x + size * 0.95f, y - size * 0.45f, x + size * 0.78f, y + size * 0.55f, x, y + size)
+                              cubicTo(x - size * 0.78f, y + size * 0.55f, x - size * 0.95f, y - size * 0.45f, x, y - size)
+                              close()
+                          }
+                          canvas.drawPath(leaf, paint)
+                          paint.color = Color.argb(110, 75, 37, 18)
+                          paint.strokeWidth = 1.3f
+                          paint.style = Paint.Style.STROKE
+                          canvas.drawLine(x, y - size * 0.72f, x, y + size * 0.72f, paint)
+                          paint.style = Paint.Style.FILL
+                          canvas.restore()
+                      }
+                  }
+              }
           }
           EOF
       - name: Build APK
