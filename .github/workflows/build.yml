@@ -938,6 +938,8 @@ jobs:
           import androidx.compose.material3.CardDefaults
           import androidx.compose.material3.Button
           import androidx.compose.material3.ButtonDefaults
+          import androidx.compose.material3.AlertDialog
+          import androidx.compose.material3.TextButton
           import androidx.compose.material3.Icon
           import androidx.compose.material3.Switch
           import androidx.compose.material3.SwitchDefaults
@@ -1247,6 +1249,7 @@ jobs:
           import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
+          import android.app.RecoverableSecurityException
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
@@ -1255,6 +1258,7 @@ jobs:
           import androidx.activity.compose.rememberLauncherForActivityResult
           import androidx.activity.compose.setContent
           import androidx.activity.enableEdgeToEdge
+          import androidx.activity.result.IntentSenderRequest
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.compose.animation.AnimatedVisibility
           import androidx.compose.foundation.background
@@ -1298,6 +1302,7 @@ jobs:
           import androidx.compose.material.icons.rounded.Undo
           import androidx.compose.material.icons.rounded.VolumeOff
                     import androidx.compose.material.icons.rounded.DirectionsCar
+          import androidx.compose.material.icons.rounded.Delete
                     import androidx.compose.material3.Button
           import androidx.compose.material3.ButtonDefaults
           import androidx.compose.material3.Icon
@@ -1469,6 +1474,41 @@ jobs:
                       fun toggleFavorite(song: Song) {
                           favorites = if (song.id.toString() in favorites) favorites - song.id.toString() else favorites + song.id.toString()
                           prefs.edit().putStringSet("favorites", favorites).apply()
+                      }
+                      var pendingDelete by remember { mutableStateOf<Song?>(null) }
+                      fun removeSongFromLibrary(song: Song) {
+                          songs = songs.filterNot { it.id == song.id }
+                          favorites = favorites - song.id.toString()
+                          prefs.edit().putStringSet("favorites", favorites).apply()
+                      }
+                      val deleteRequest = rememberLauncherForActivityResult(
+                          ActivityResultContracts.StartIntentSenderForResult()
+                      ) { result ->
+                          if (result.resultCode == android.app.Activity.RESULT_OK) {
+                              pendingDelete?.let { removeSongFromLibrary(it) }
+                              songs = loadSongs(ctx)
+                          }
+                          pendingDelete = null
+                      }
+                      fun deleteSong(song: Song) {
+                          try {
+                              if (Build.VERSION.SDK_INT >= 30) {
+                                  val request = MediaStore.createDeleteRequest(ctx.contentResolver, listOf(song.uri))
+                                  deleteRequest.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                              } else {
+                                  val deleted = ctx.contentResolver.delete(song.uri, null, null) > 0
+                                  if (deleted) removeSongFromLibrary(song)
+                                  else android.widget.Toast.makeText(ctx, "حذف آهنگ انجام نشد", android.widget.Toast.LENGTH_SHORT).show()
+                              }
+                          } catch (e: RecoverableSecurityException) {
+                              if (Build.VERSION.SDK_INT == 29) {
+                                  deleteRequest.launch(IntentSenderRequest.Builder(e.userAction.actionIntent.intentSender).build())
+                              } else {
+                                  android.widget.Toast.makeText(ctx, "اجازه حذف فایل داده نشد", android.widget.Toast.LENGTH_SHORT).show()
+                              }
+                          } catch (_: Throwable) {
+                              android.widget.Toast.makeText(ctx, "حذف آهنگ انجام نشد", android.widget.Toast.LENGTH_SHORT).show()
+                          }
                       }
                       fun shareSong(song: Song) {
                           val send = Intent(Intent.ACTION_SEND).apply {
@@ -1741,58 +1781,38 @@ jobs:
                                               colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a))
                                           Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(20.dp))
                                       }
-                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp),
                                           verticalAlignment = Alignment.CenterVertically) {
-                                          Button(onClick = { player?.let { it.shuffleModeEnabled = !shuffle } },
-                                              modifier = Modifier.weight(1f).height(56.dp),
+                                          Button(onClick = { player?.let { pl -> pl.shuffleModeEnabled = !pl.shuffleModeEnabled } },
+                                              modifier = Modifier.weight(1f).height(64.dp),
                                               colors = ButtonDefaults.buttonColors(containerColor = if (shuffle) p.a else OverlayHi)) {
-                                              Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(24.dp))
-                                              Text("Shuffle")
+                                              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                  Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(25.dp))
+                                                  Text(if (shuffle) "Shuffle روشن" else "Shuffle", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                              }
                                           }
-                                          Button(onClick = { player?.let { it.repeatMode = when (repeat) {
+                                          Button(onClick = { player?.let { pl -> pl.repeatMode = when (pl.repeatMode) {
                                               Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
                                               Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
                                               else -> Player.REPEAT_MODE_OFF
-                                          } } }, modifier = Modifier.weight(1f).height(56.dp),
+                                          } } }, modifier = Modifier.weight(1f).height(64.dp),
                                               colors = ButtonDefaults.buttonColors(containerColor = if (repeat != Player.REPEAT_MODE_OFF) p.a else OverlayHi)) {
-                                              Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                                  null, modifier = Modifier.size(24.dp))
-                                              Text("تکرار")
+                                              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                  Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                                      null, modifier = Modifier.size(25.dp))
+                                                  Text(when (repeat) { Player.REPEAT_MODE_ONE -> "تکرار یک آهنگ"; Player.REPEAT_MODE_ALL -> "تکرار همه"; else -> "تکرار خاموش" },
+                                                      fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                              }
                                           }
-                                          val currentDrive = cur
-                                          Button(onClick = { currentDrive?.let { toggleFavorite(it) } },
-                                              modifier = Modifier.weight(1f).height(56.dp),
-                                              colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                              Icon(if (currentDrive != null && currentDrive.id.toString() in favorites)
-                                                  Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null,
-                                                  modifier = Modifier.size(24.dp))
-                                          }
-                                          Button(onClick = { currentDrive?.let { shareSong(it) } },
-                                              modifier = Modifier.weight(1f).height(56.dp),
-                                              colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                              Icon(Icons.Rounded.Share, null, modifier = Modifier.size(24.dp))
-                                          }
-                                      }
-                                  }
-                                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                      verticalAlignment = Alignment.CenterVertically) {
-                                      val current = cur
-                                      IconButton(onClick = { current?.let { toggleFavorite(it) } }, enabled = current != null) {
-                                          Icon(if (current != null && current.id.toString() in favorites)
-                                              Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                              "علاقه‌مندی", tint = if (current != null && current.id.toString() in favorites) Danger else p.b,
-                                              modifier = Modifier.size(30.dp))
-                                      }
-                                      IconButton(onClick = { current?.let { shareSong(it) } }, enabled = current != null) {
-                                          Icon(Icons.Rounded.Share, "اشتراک‌گذاری", tint = p.b, modifier = Modifier.size(30.dp))
                                       }
                                   }
                               }
-                              else -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+                              2, 5 -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
                                   Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                      Text("کتابخانه", color = TextHi, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                                  val librarySongs = if (page == 5) songs.filter { it.id.toString() in favorites } else shown
+                                      Text(if (page == 5) "علاقه‌مندی‌ها" else "کتابخانه", color = TextHi, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                                           modifier = Modifier.weight(1f))
-                                      Text("${shown.size} نتیجه", color = TextLo, fontSize = 11.sp)
+                                      Text("${librarySongs.size} آهنگ", color = TextLo, fontSize = 11.sp)
                                   }
                                   OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
                                       placeholder = { Text("جست‌وجوی آهنگ یا خواننده…", color = TextLo, fontSize = 13.sp) },
@@ -1815,11 +1835,11 @@ jobs:
                                       if (shown.isEmpty()) item {
                                           Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
                                               .background(Overlay).padding(24.dp), contentAlignment = Alignment.Center) {
-                                              Text(if (songs.isEmpty()) "آهنگی روی گوشی پیدا نشد." else "چیزی با این عبارت پیدا نشد.",
+                                              Text(if (page == 5) "هنوز آهنگی به علاقه‌مندی‌ها اضافه نشده." else if (songs.isEmpty()) "آهنگی روی گوشی پیدا نشد." else "چیزی با این عبارت پیدا نشد.",
                                                   color = TextLo, fontSize = 13.sp)
                                           }
                                       }
-                                      itemsIndexed(shown, key = { _, sg -> sg.id }) { _, sg ->
+                                      itemsIndexed(librarySongs, key = { _, sg -> sg.id }) { _, sg ->
                                           val active = cur?.id == sg.id
                                           Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
                                               .background(if (active) p.a.copy(alpha = 0.22f) else Overlay)
@@ -1848,15 +1868,27 @@ jobs:
                                                       "علاقه‌مندی", tint = if (sg.id.toString() in favorites) Danger else TextLo,
                                                       modifier = Modifier.size(20.dp))
                                               }
-                                              IconButton(onClick = { shareSong(sg) }, modifier = Modifier.size(38.dp)) {
-                                                  Icon(Icons.Rounded.Share, "اشتراک‌گذاری", tint = p.b, modifier = Modifier.size(19.dp))
+                                              IconButton(onClick = { pendingDelete = sg }, modifier = Modifier.size(36.dp)) {
+                                                  Icon(Icons.Rounded.Delete, "حذف کامل آهنگ از گوشی", tint = Danger, modifier = Modifier.size(19.dp))
                                               }
-                                              Text(fmt(sg.duration), color = TextLo, fontSize = 11.sp)
                                           }
                                       }
                                   }
                               }
                           }
+                      }
+                      if (pendingDelete != null) {
+                          AlertDialog(
+                              onDismissRequest = { pendingDelete = null },
+                              title = { Text("حذف کامل آهنگ؟", fontWeight = FontWeight.Bold) },
+                              text = { Text("«${pendingDelete?.title}» از حافظه گوشی حذف خواهد شد و این عمل قابل بازگشت نیست.") },
+                              confirmButton = {
+                                  TextButton(onClick = { pendingDelete?.let { deleteSong(it) } }) {
+                                      Text("حذف از گوشی", color = Danger, fontWeight = FontWeight.Bold)
+                                  }
+                              },
+                              dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("انصراف") } }
+                          )
                       }
                       Row(Modifier.fillMaxWidth().navigationBarsPadding()
                           .padding(horizontal = 14.dp, vertical = 8.dp)
@@ -1870,6 +1902,7 @@ jobs:
                               Triple("صدا", Icons.Rounded.MusicNote, 1),
                               Triple("آهنگ‌ها", Icons.Rounded.Search, 2),
                               Triple("رانندگی", Icons.Rounded.DirectionsCar, 3),
+                              Triple("علاقه‌مندی", Icons.Rounded.Favorite, 5),
                               Triple("Crystal", Icons.Rounded.MusicNote, 4)
                           )
                           navItems.forEach { (label, navIcon, index) ->
