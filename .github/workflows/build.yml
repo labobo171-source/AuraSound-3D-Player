@@ -798,7 +798,7 @@ jobs:
                   Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
                       verticalArrangement = Arrangement.spacedBy(13.dp)) {
                       Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(22.dp))
+                          Icon(Icons.Rounded.MusicNote, null, tint = p.b, modifier = Modifier.size(22.dp))
                           Column(Modifier.weight(1f).padding(start = 8.dp)) {
                               Text("پردازش صدای سه‌بعدی", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                               Text("شفاف‌سازی ملایم صدا به‌صورت داخلی فعال است", color = TextLo, fontSize = 10.sp)
@@ -881,10 +881,8 @@ jobs:
           import androidx.compose.material.icons.rounded.SkipPrevious
           import androidx.compose.material.icons.rounded.Undo
           import androidx.compose.material.icons.rounded.VolumeOff
-          import androidx.compose.material.icons.rounded.VolumeUp
-          import androidx.compose.material.icons.rounded.DirectionsCar
-          import androidx.compose.material.icons.rounded.VolumeUp
-          import androidx.compose.material3.Button
+                    import androidx.compose.material.icons.rounded.DirectionsCar
+                    import androidx.compose.material3.Button
           import androidx.compose.material3.ButtonDefaults
           import androidx.compose.material3.Icon
           import androidx.compose.material3.IconButton
@@ -1109,7 +1107,7 @@ jobs:
                               .border(1.dp, if (s.muted) Danger.copy(alpha = 0.6f) else Success.copy(alpha = 0.5f), RoundedCornerShape(50))
                               .clickable { Sound.set { it.copy(muted = !it.muted) } }
                               .padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                              Icon(if (s.muted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp, null,
+                              Icon(if (s.muted) Icons.Rounded.VolumeOff else Icons.Rounded.MusicNote, null,
                                   tint = if (s.muted) Danger else Success, modifier = Modifier.size(17.dp))
                               Spacer(Modifier.width(6.dp))
                               Text(if (s.muted) "بی‌صدا" else "صدا", color = if (s.muted) Danger else Success,
@@ -1257,7 +1255,7 @@ jobs:
                                                   .background(if (active) Brush.linearGradient(listOf(p.a, p.b))
                                                       else Brush.linearGradient(listOf(OverlayHi, Overlay))),
                                                   contentAlignment = Alignment.Center) {
-                                                  Icon(if (active && playing) Icons.Rounded.VolumeUp else Icons.Rounded.MusicNote,
+                                                  Icon(if (active && playing) Icons.Rounded.MusicNote else Icons.Rounded.MusicNote,
                                                       null, tint = if (active) Color.White else TextLo, modifier = Modifier.size(19.dp))
                                               }
                                               Spacer(Modifier.width(12.dp))
@@ -1284,7 +1282,7 @@ jobs:
                           horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                           val navItems = listOf(
                               Triple("پخش", Icons.Rounded.MusicNote, 0),
-                              Triple("صدا", Icons.Rounded.VolumeUp, 1),
+                              Triple("صدا", Icons.Rounded.MusicNote, 1),
                               Triple("آهنگ‌ها", Icons.Rounded.Search, 2),
                               Triple("رانندگی", Icons.Rounded.DirectionsCar, 3)
                           )
