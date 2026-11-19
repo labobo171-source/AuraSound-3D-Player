@@ -1439,7 +1439,7 @@ jobs:
                   ctx.contentResolver.query(
                       MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, proj,
                       "${MediaStore.Audio.Media.IS_MUSIC} != 0", null,
-                      "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
+                      "${MediaStore.Audio.Media.DATE_ADDED} DESC, ${MediaStore.Audio.Media._ID} DESC"
                   )?.use { c ->
                       val iId = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                       val iT = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
@@ -1526,7 +1526,8 @@ jobs:
                           try { ctx.startActivity(Intent.createChooser(send, "اشتراک‌گذاری آهنگ")) } catch (_: Throwable) { }
                       }
               var query by remember { mutableStateOf("") }
-              var sort by remember { mutableStateOf(0) }
+              // Default library and playback queue order: newest added songs first.
+              var sort by remember { mutableStateOf(3) }
               var undo by remember { mutableStateOf<SoundState?>(null) }
               var undoMsg by remember { mutableStateOf("") }
           
