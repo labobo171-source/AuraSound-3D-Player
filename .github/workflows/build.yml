@@ -508,6 +508,8 @@ jobs:
                       .setHandleAudioBecomingNoisy(true)
                       .setWakeMode(C.WAKE_MODE_LOCAL)
                       .build()
+                  // Sequential playback is the default for every fresh player session.
+                  p.shuffleModeEnabled = false
 
                   p.addListener(object : Player.Listener {
                       override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -1554,21 +1556,29 @@ jobs:
           
               LaunchedEffect(player, songs) {
                   val pl = player ?: return@LaunchedEffect
-                  if (songs.isNotEmpty() && pl.mediaItemCount == 0) {
-                      // Always start a newly loaded library in natural list order.
-                      // Shuffle remains available only when the user explicitly enables it.
-                      pl.shuffleModeEnabled = false
-                      pl.setMediaItems(songs.map { sg ->
+                  if (songs.isNotEmpty()) {
+                      // Reconcile the complete queue with the library, not just an empty queue.
+                      // A stale or partial MediaSession queue must never dictate the next track.
+                      val queue = songs.map { sg ->
                           MediaItem.Builder().setUri(sg.uri).setMediaId(sg.id.toString())
                               .setMediaMetadata(
                                   MediaMetadata.Builder().setTitle(sg.title).setArtist(sg.artist).build()
                               ).build()
-                      }, /* resetPosition = */ true)
-                      pl.prepare()
-                      pl.play()
+                      }
+                      pl.shuffleModeEnabled = false
+                      val queueMatches = pl.mediaItemCount == queue.size &&
+                          (0 until queue.size).all { i -> pl.getMediaItemAt(i).mediaId == queue[i].mediaId }
+                      if (!queueMatches) {
+                          val currentId = pl.currentMediaItem?.mediaId
+                          val currentPosition = pl.currentPosition.coerceAtLeast(0L)
+                          val restoredIndex = queue.indexOfFirst { it.mediaId == currentId }
+                          val startIndex = if (restoredIndex >= 0) restoredIndex else 0
+                          pl.setMediaItems(queue, startIndex, if (restoredIndex >= 0) currentPosition else 0L)
+                          pl.prepare()
+                          pl.play()
+                      }
                   }
               }
-          
               LaunchedEffect(player) {
                   val pl = player ?: return@LaunchedEffect
                   val l = object : Player.Listener {
