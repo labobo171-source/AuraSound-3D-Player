@@ -1788,6 +1788,7 @@ jobs:
                                           Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(20.dp))
                                       }
                               }
+                              }
                               2, 5 -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
                                   val librarySongs = if (page == 5) songs.filter { it.id.toString() in favorites } else shown
                                   Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
