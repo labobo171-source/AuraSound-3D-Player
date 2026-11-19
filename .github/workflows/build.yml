@@ -1742,22 +1742,22 @@ jobs:
                                   // Six equally aligned driving controls on one horizontal row.
                                   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                       Button(onClick = { player?.seekToPrevious() }, modifier = Modifier.weight(1f).height(76.dp), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.SkipPrevious, null, modifier = Modifier.size(24.dp)); Text("قبلی", fontWeight = FontWeight.Bold, fontSize = 9.sp, maxLines = 1) }
+                                          Icon(Icons.Rounded.SkipPrevious, null, modifier = Modifier.size(30.dp))
                                       }
                                       Button(onClick = { player?.let { if (it.isPlaying) it.pause() else it.play() } }, modifier = Modifier.weight(1f).height(76.dp), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = p.a)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, modifier = Modifier.size(28.dp)); Text(if (playing) "توقف" else "پخش", fontWeight = FontWeight.ExtraBold, fontSize = 9.sp, maxLines = 1) }
+                                          Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, modifier = Modifier.size(34.dp))
                                       }
                                       Button(onClick = { player?.seekToNext() }, modifier = Modifier.weight(1f).height(76.dp), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.SkipNext, null, modifier = Modifier.size(24.dp)); Text("بعدی", fontWeight = FontWeight.Bold, fontSize = 9.sp, maxLines = 1) }
+                                          Icon(Icons.Rounded.SkipNext, null, modifier = Modifier.size(30.dp))
                                       }
                                       Button(onClick = { player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }, modifier = Modifier.weight(1f).height(76.dp), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = if (shuffle) p.a else OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(22.dp)); Text(if (shuffle) "روشن" else "شافل", fontWeight = FontWeight.Bold, fontSize = 9.sp, maxLines = 1) }
+                                          Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(28.dp))
                                       }
                                       Button(onClick = { player?.let { it.repeatMode = when (it.repeatMode) { Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL; Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF } } }, modifier = Modifier.weight(1f).height(76.dp), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = if (repeat != Player.REPEAT_MODE_OFF) p.a else OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, null, modifier = Modifier.size(22.dp)); Text(when (repeat) { Player.REPEAT_MODE_ONE -> "یک"; Player.REPEAT_MODE_ALL -> "همه"; else -> "تکرار" }, fontWeight = FontWeight.Bold, fontSize = 9.sp, maxLines = 1) }
+                                          Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, null, modifier = Modifier.size(28.dp))
                                       }
                                       Button(onClick = { cur?.let { shareSong(it) } }, enabled = cur != null, modifier = Modifier.weight(1f).height(76.dp), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = OverlayHi)) {
-                                          Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Share, null, modifier = Modifier.size(22.dp)); Text("اشتراک", fontWeight = FontWeight.Bold, fontSize = 9.sp, maxLines = 1) }
+                                          Icon(Icons.Rounded.Share, null, modifier = Modifier.size(28.dp))
                                       }
                                   }
                                   Text(cur?.title ?: "آهنگی در حال پخش نیست", color = TextHi, fontSize = 14.sp,
@@ -1787,31 +1787,6 @@ jobs:
                                               colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a))
                                           Icon(Icons.Rounded.VolumeUp, null, tint = p.b, modifier = Modifier.size(20.dp))
                                       }
-                                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                          verticalAlignment = Alignment.CenterVertically) {
-                                          Button(onClick = { player?.let { pl -> pl.shuffleModeEnabled = !pl.shuffleModeEnabled } },
-                                              modifier = Modifier.weight(1f).height(64.dp),
-                                              colors = ButtonDefaults.buttonColors(containerColor = if (shuffle) p.a else OverlayHi)) {
-                                              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                  Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(25.dp))
-                                                  Text(if (shuffle) "Shuffle روشن" else "Shuffle", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                              }
-                                          }
-                                          Button(onClick = { player?.let { pl -> pl.repeatMode = when (pl.repeatMode) {
-                                              Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                                              Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                                              else -> Player.REPEAT_MODE_OFF
-                                          } } }, modifier = Modifier.weight(1f).height(64.dp),
-                                              colors = ButtonDefaults.buttonColors(containerColor = if (repeat != Player.REPEAT_MODE_OFF) p.a else OverlayHi)) {
-                                              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                  Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                                      null, modifier = Modifier.size(25.dp))
-                                                  Text(when (repeat) { Player.REPEAT_MODE_ONE -> "تکرار یک آهنگ"; Player.REPEAT_MODE_ALL -> "تکرار همه"; else -> "تکرار خاموش" },
-                                                      fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                              }
-                                          }
-                                      }
-                                  }
                               }
                               2, 5 -> Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
                                   val librarySongs = if (page == 5) songs.filter { it.id.toString() in favorites } else shown
