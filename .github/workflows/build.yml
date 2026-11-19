@@ -1555,12 +1555,15 @@ jobs:
               LaunchedEffect(player, songs) {
                   val pl = player ?: return@LaunchedEffect
                   if (songs.isNotEmpty() && pl.mediaItemCount == 0) {
+                      // Always start a newly loaded library in natural list order.
+                      // Shuffle remains available only when the user explicitly enables it.
+                      pl.shuffleModeEnabled = false
                       pl.setMediaItems(songs.map { sg ->
                           MediaItem.Builder().setUri(sg.uri).setMediaId(sg.id.toString())
                               .setMediaMetadata(
                                   MediaMetadata.Builder().setTitle(sg.title).setArtist(sg.artist).build()
                               ).build()
-                      })
+                      }, /* resetPosition = */ true)
                       pl.prepare()
                       pl.play()
                   }
