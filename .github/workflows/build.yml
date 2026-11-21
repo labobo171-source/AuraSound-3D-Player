@@ -367,6 +367,8 @@ jobs:
                   trebleLow = FloatArray(channels)
                   vocalLow = FloatArray(channels)
                   vocalHigh = FloatArray(channels)
+                  noiseLow = FloatArray(channels)
+                  brownNoise = FloatArray(channels)
                   return inputAudioFormat
               }
 
