@@ -461,9 +461,9 @@ jobs:
                               processed[c] += shapedNoise * maskGain
                           }
                       }
-                      // Soft limiter reduces peaks after mixing the masking layer.
+                      // Soft limiting is only applied when masking is enabled.
                       for (c in 0 until channels) {
-                          processed[c] = processed[c] / (1f + abs(processed[c]) * 0.12f)
+                          if (state.noiseShield) processed[c] = processed[c] / (1f + abs(processed[c]) * 0.12f)
                           val sample = processed[c].coerceIn(-1f, 1f)
                           if (floatPcm) {
                               output.putFloat(sample)
