@@ -185,7 +185,10 @@ jobs:
               val safe: Boolean = true,
               val motion: Boolean = true,
               val spectrum: Boolean = true,
-              val palette: Int = 0
+              val palette: Int = 0,
+              val noiseShield: Boolean = false,
+              val noiseIntensity: Float = 22f,
+              val noiseType: Int = 1
           )
 
           data class EngineInfo(
@@ -349,6 +352,9 @@ jobs:
               private var vocalLow = FloatArray(2)
               private var vocalHigh = FloatArray(2)
               private var envelope = 0f
+              private var noiseLow = FloatArray(2)
+              private var brownNoise = FloatArray(2)
+              private var noiseSeed = 0x13579BDF
 
               override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
                   val supportedEncoding = inputAudioFormat.encoding == AudioFormat.ENCODING_PCM_16BIT ||
@@ -370,6 +376,8 @@ jobs:
                   vocalLow.fill(0f)
                   vocalHigh.fill(0f)
                   envelope = 0f
+                  noiseLow.fill(0f)
+                  brownNoise.fill(0f)
               }
 
               override fun queueInput(inputBuffer: ByteBuffer) {
@@ -438,7 +446,24 @@ jobs:
                           }
                       }
 
+                      if (state.noiseShield) {
+                          val maskGain = state.noiseIntensity.coerceIn(0f, 100f) / 100f * 0.075f
+                          for (c in 0 until channels) {
+                              noiseSeed = noiseSeed * 1664525 + 1013904223
+                              val white = ((noiseSeed ushr 8) and 0x00FFFFFF) / 8388607.5f - 1f
+                              noiseLow[c] += 0.045f * (white - noiseLow[c])
+                              brownNoise[c] = (brownNoise[c] + white * 0.018f).coerceIn(-1f, 1f)
+                              val shapedNoise = when (state.noiseType.coerceIn(0, 2)) {
+                                  0 -> white
+                                  1 -> (white - noiseLow[c]) * 0.45f + noiseLow[c] * 3.2f
+                                  else -> brownNoise[c] * 1.6f
+                              }.coerceIn(-1f, 1f)
+                              processed[c] += shapedNoise * maskGain
+                          }
+                      }
+                      // Soft limiter reduces peaks after mixing the masking layer.
                       for (c in 0 until channels) {
+                          processed[c] = processed[c] / (1f + abs(processed[c]) * 0.12f)
                           val sample = processed[c].coerceIn(-1f, 1f)
                           if (floatPcm) {
                               output.putFloat(sample)
@@ -1463,6 +1488,76 @@ jobs:
           }
           
           @Composable
+          fun NoiseShieldPage(p: Pal, s: SoundState) {
+              Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                  .padding(horizontal = 16.dp, vertical = 14.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                  Box(Modifier.size(90.dp).clip(CircleShape)
+                      .background(Brush.linearGradient(listOf(p.a.copy(alpha = 0.75f), p.b.copy(alpha = 0.55f)))),
+                      contentAlignment = Alignment.Center) {
+                      Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(42.dp))
+                  }
+                  Text("Smart Noise Shield", color = TextHi, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                  Text("پوشاندن نرم صداهای مزاحم با لایه صوتی قابل تنظیم",
+                      color = TextLo, fontSize = 12.sp)
+                  Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                      .background(Overlay).border(1.dp, p.a.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                      .padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                      Column(Modifier.weight(1f)) {
+                          Text(if (s.noiseShield) "Noise Shield فعال" else "Noise Shield خاموش",
+                              color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                          Text("صدای پوشاننده مستقل از ANC ایرپاد",
+                              color = TextLo, fontSize = 10.sp)
+                      }
+                      Switch(checked = s.noiseShield, onCheckedChange = { v ->
+                          Sound.set { it.copy(noiseShield = v) }
+                      }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White,
+                          checkedTrackColor = p.a, uncheckedThumbColor = TextLo,
+                          uncheckedTrackColor = OverlayHi))
+                  }
+                  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                      .background(Overlay).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                      Text("نوع صدای پوشاننده", color = TextHi, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                          listOf("White", "Pink", "Brown").forEachIndexed { i, name ->
+                              Chip(if (s.noiseType == i) "$name ✓" else name, p.a) {
+                                  Sound.set { it.copy(noiseType = i) }
+                              }
+                          }
+                      }
+                      Text(when(s.noiseType) {
+                          0 -> "White Noise · طیف روشن و گسترده"
+                          1 -> "Pink Noise · متعادل و ملایم‌تر"
+                          else -> "Brown Noise · صدای بم و عمیق"
+                      }, color = TextLo, fontSize = 10.sp)
+                  }
+                  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                      .background(Overlay).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                          Text("شدت لایه پوشاننده", color = TextHi, fontSize = 13.sp,
+                              fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                          Text("${s.noiseIntensity.toInt()}%", color = p.b, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                      }
+                      Slider(value = s.noiseIntensity, onValueChange = { v ->
+                          Sound.set { it.copy(noiseIntensity = v) }
+                      }, valueRange = 0f..100f, enabled = s.noiseShield,
+                          colors = SliderDefaults.colors(thumbColor = p.b, activeTrackColor = p.a))
+                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                          Text("کم", color = TextLo, fontSize = 10.sp)
+                          Text("زیاد", color = TextLo, fontSize = 10.sp)
+                      }
+                  }
+                  Text("پیشنهاد: ابتدا Pink Noise را با شدت کم امتحان کن. این ویژگی صدای محیط را به‌طور فیزیکی حذف نمی‌کند؛ با افزودن صدای پوشاننده کمک می‌کند نویز یکنواخت کمتر محسوس شود. برای صدای ناگهانی یا مکالمه تضمینی ندارد.",
+                      color = Warning, fontSize = 11.sp)
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      Chip("خاموش کردن", Danger) { Sound.set { it.copy(noiseShield = false) } }
+                      Chip("تنظیم پیش‌فرض", p.b) { Sound.set { it.copy(noiseIntensity = 22f, noiseType = 1, noiseShield = false) } }
+                  }
+              }
+          }
+
+          @Composable
           fun App(p: Pal, s: SoundState) {
               val ctx = LocalContext.current
               val info by Sound.info.collectAsState()
@@ -1727,6 +1822,7 @@ jobs:
                               }
                               1 -> Studio(p, s, info)
                               4 -> CrystalAudioPage(p, s)
+                              6 -> NoiseShieldPage(p, s)
                               3 -> Column(
                                   Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                                       .padding(horizontal = 18.dp, vertical = 12.dp),
@@ -1890,7 +1986,8 @@ jobs:
                               Triple("آهنگ‌ها", Icons.Rounded.Search, 2),
                               Triple("رانندگی", Icons.Rounded.DirectionsCar, 3),
                               Triple("علاقه‌مندی", Icons.Rounded.Favorite, 5),
-                              Triple("Crystal", Icons.Rounded.MusicNote, 4)
+                              Triple("Crystal", Icons.Rounded.MusicNote, 4),
+                              Triple("Noise Shield", Icons.Rounded.MusicNote, 6)
                           )
                           navItems.forEach { (label, navIcon, index) ->
                               val selected = page == index
