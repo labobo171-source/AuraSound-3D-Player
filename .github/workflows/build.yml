@@ -1657,6 +1657,12 @@ jobs:
               var dur by remember { mutableStateOf(0L) }
               var shuffle by remember { mutableStateOf(false) }
               var repeat by remember { mutableStateOf(Player.REPEAT_MODE_OFF) }
+              fun savePlaybackPosition() {
+                  val pl = player ?: return
+                  val mediaId = pl.currentMediaItem?.mediaId ?: return
+                  prefs.edit().putString("last_track_id", mediaId)
+                      .putLong("last_track_position", pl.currentPosition.coerceAtLeast(0L)).apply()
+              }
           
               LaunchedEffect(player, songs) {
                   val pl = player ?: return@LaunchedEffect
@@ -1673,11 +1679,15 @@ jobs:
                       val queueMatches = pl.mediaItemCount == queue.size &&
                           (0 until queue.size).all { i -> pl.getMediaItemAt(i).mediaId == queue[i].mediaId }
                       if (!queueMatches) {
-                          val currentId = pl.currentMediaItem?.mediaId
-                          val currentPosition = pl.currentPosition.coerceAtLeast(0L)
-                          val restoredIndex = queue.indexOfFirst { it.mediaId == currentId }
+                          val liveId = pl.currentMediaItem?.mediaId
+                          val livePosition = pl.currentPosition.coerceAtLeast(0L)
+                          val savedId = prefs.getString("last_track_id", null)
+                          val savedPosition = prefs.getLong("last_track_position", 0L)
+                          val preferredId = liveId ?: savedId
+                          val restoredIndex = queue.indexOfFirst { it.mediaId == preferredId }
                           val startIndex = if (restoredIndex >= 0) restoredIndex else 0
-                          pl.setMediaItems(queue, startIndex, if (restoredIndex >= 0) currentPosition else 0L)
+                          val startPosition = if (liveId != null) livePosition else savedPosition
+                          pl.setMediaItems(queue, startIndex, if (restoredIndex >= 0) startPosition else 0L)
                           pl.prepare()
                           pl.play()
                       }
@@ -1692,11 +1702,15 @@ jobs:
                           dur = pp.duration.coerceAtLeast(0L)
                           shuffle = pp.shuffleModeEnabled
                           repeat = pp.repeatMode
+                          pp.currentMediaItem?.mediaId?.let { id ->
+                              prefs.edit().putString("last_track_id", id)
+                                  .putLong("last_track_position", pp.currentPosition.coerceAtLeast(0L)).apply()
+                          }
                       }
                   }
                   pl.addListener(l)
                   try {
-                      while (true) { pos = pl.currentPosition.coerceAtLeast(0L); delay(300L) }
+                      while (true) { pos = pl.currentPosition.coerceAtLeast(0L); savePlaybackPosition(); delay(1000L) }
                   } finally { pl.removeListener(l) }
               }
           
@@ -1800,7 +1814,7 @@ jobs:
                                           IconButton(onClick = { player?.let { it.shuffleModeEnabled = !shuffle } }) {
                                               Icon(Icons.Rounded.Shuffle, null, tint = if (shuffle) p.b else TextLo)
                                           }
-                                          IconButton(onClick = { player?.seekToPrevious() }) {
+                                          IconButton(onClick = { player?.seekToPreviousMediaItem() }) {
                                               Icon(Icons.Rounded.SkipPrevious, null, tint = TextHi, modifier = Modifier.size(if (s.drivingMode) 36.dp else 30.dp))
                                           }
                                           Box(Modifier.size(if (s.drivingMode) 72.dp else 58.dp).clip(CircleShape)
